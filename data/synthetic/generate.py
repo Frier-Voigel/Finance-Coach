@@ -1,28 +1,149 @@
-"""Deterministic generator of synthetic bank data (unified for Person A & Person B).
+"""Deterministic generator of synthetic bank data (fully unified for Person A & Person B).
 
 Supports:
 - Person A: 3 CSV layouts, 1 PDF statement, SMS alerts text, `generate()`, `build_ledger()`, `Entry`.
-- Person B: `generate_transactions()`, `generate_profile()`, `generate_goals()`, `generate_recurring()`, `write_outputs()`.
+- Person B: `build(as_of)`, `sms_text(t)`, `write_files()`, `generate_transactions()`, `generate_profile()`.
 """
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import datetime as dt
-import json
-import os
-import random
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+import json
+import os
 from pathlib import Path
+import random
+
+from dateutil.relativedelta import relativedelta
+
+# ---------------------------------------------------------------------------
+# Person B Generator: build(as_of), write_files, sms_text
+# ---------------------------------------------------------------------------
+
+SEED = 42
+INCOME = 75000
+
+VARIABLE = [
+    ("Groceries", ["BigBasket", "Blinkit", "Zepto", "Reliance Fresh"], (250, 1400), 9),
+    ("Dining", ["Swiggy", "Zomato", "Barbeque Nation", "Cafe Coffee Day"], (180, 900), 8),
+    ("Transport", ["Uber", "Ola", "Metro Card Recharge"], (90, 450), 10),
+    ("Shopping", ["Amazon", "Myntra", "Flipkart"], (400, 2800), 3),
+    ("Entertainment", ["BookMyShow", "PVR Cinemas"], (250, 700), 2),
+    ("Health", ["Apollo Pharmacy", "Practo"], (200, 1200), 1),
+]
+RENT_BEFORE, RENT_AFTER = 22000, 24000
+FIXED = {"Rent": RENT_AFTER, "Utilities": 3200, "Subscriptions": 2268}
+SUBSCRIPTIONS = [  # merchant, category, amount, day of month
+    ("Netflix", "Subscriptions", 649, 5),
+    ("Spotify", "Subscriptions", 119, 9),
+    ("Cult.fit Gym", "Subscriptions", 1500, 12),
+]
+
+
+def _month_starts(as_of: date, back: int = 6) -> list[date]:
+    first = as_of.replace(day=1)
+    return [first - relativedelta(months=i) for i in range(back, -1, -1)]
+
+
+def build(as_of: date = date(2026, 10, 15), seed: int = SEED) -> dict:
+    """Build canonical seed dictionary compatible with test_phase0_data.py."""
+    rnd = random.Random(seed)
+    txns: list[dict] = []
+
+    def add(d: date, amount: int, direction: str, desc: str, merchant: str | None, category: str, source: str = "csv") -> None:
+        if d <= as_of:
+            txns.append({"date": d, "amount": amount, "direction": direction, "description": desc, "merchant": merchant,
+                         "category": category, "category_source": "rule", "source": source, "account": "HDFC Savings"})
+
+    for ms in _month_starts(as_of):
+        last = calendar.monthrange(ms.year, ms.month)[1]
+        is_current = (ms.year, ms.month) == (as_of.year, as_of.month)
+        add(ms.replace(day=1), INCOME, "credit", "SALARY ACME TECH PVT LTD", "Acme Tech", "Income")
+        rent = RENT_AFTER if ms >= as_of.replace(day=1) - relativedelta(months=2) else RENT_BEFORE  # the rent increase
+        add(ms.replace(day=2), rent, "debit", "NEFT-RENT-R S MEHTA", "Landlord", "Rent")
+        add(ms.replace(day=7), FIXED["Utilities"] + rnd.randint(-300, 300), "debit", "BESCOM ELECTRICITY BILL", "BESCOM", "Utilities")
+        for name, cat, amt, day in SUBSCRIPTIONS:
+            price = amt + (150 if name == "Netflix" and (ms >= as_of.replace(day=1) - relativedelta(months=1)) else 0)
+            add(ms.replace(day=min(day, last)), price, "debit", f"{name.upper()} SUBSCRIPTION", name, cat)
+        for cat, merchants, (lo, hi), per_month in VARIABLE:
+            n = per_month if not is_current else max(1, round(per_month * as_of.day / last))  # month to date
+            if is_current and cat == "Dining":
+                n += 6  # the drift the nudge should catch
+            for _ in range(n):
+                m = rnd.choice(merchants)
+                day = rnd.randint(1, last) if not is_current else rnd.randint(1, as_of.day)
+                amount = rnd.randint(lo, hi) * (2 if (is_current and cat == "Dining") else 1)
+                ref = rnd.randint(100000, 999999)
+                style = rnd.choice(["UPI-{m}-{ref}", "POS {m} CARD XX1234", "UPI/{ref}/{m}/PAY"])  # UPI and card-style narrations
+                add(ms.replace(day=day), amount, "debit", style.format(m=m.upper(), ref=ref), m, cat)
+
+    profile = {"monthly_income": INCOME, "fixed_costs": dict(FIXED), "emergency_fund_current": 40000, "emergency_fund_target": 200000}
+    goals = [
+        {"name": "Goa trip", "target_amount": 60000, "current_amount": 10000, "target_date": as_of + relativedelta(months=12), "priority": 1},
+        {"name": "New laptop", "target_amount": 90000, "current_amount": 0, "target_date": as_of + relativedelta(months=18), "priority": 2},
+    ]
+    recurring = [
+        {"merchant": "Netflix", "amount": 799, "cadence": "monthly", "last_seen": as_of.replace(day=5), "status": "changed"},
+        {"merchant": "Spotify", "amount": 119, "cadence": "monthly", "last_seen": as_of.replace(day=9), "status": "active"},
+        {"merchant": "Cult.fit Gym", "amount": 1500, "cadence": "monthly", "last_seen": as_of.replace(day=12), "status": "unused"},
+    ]
+    txns.sort(key=lambda t: t["date"])
+    return {"transactions": txns, "profile": profile, "goals": goals, "recurring": recurring}
+
+
+def sms_text(t: dict | Entry) -> str:
+    """Bank-style SMS alert for one transaction."""
+    if isinstance(t, Entry):
+        when = t.day.strftime("%d-%b-%y")
+        if t.direction == "credit":
+            return f"Rs.{t.amount} credited to A/c XX1234 on {when} by {t.merchant}. Avl bal Rs.50000.00"
+        prep = "to" if t.merchant == "LANDLORD RAJESH" else "at"
+        return f"Rs.{t.amount} debited from A/c XX1234 {prep} {t.merchant} on {when}. Avl bal Rs.40000.00"
+    else:
+        when = t["date"].strftime("%d-%b-%y")
+        merch = (t.get("merchant") or t.get("description") or "MERCHANT").upper()
+        amt = t["amount"]
+        if t.get("direction") == "credit":
+            return f"Rs.{amt}.00 credited to A/c XX1234 on {when} by {merch}. Avl bal Rs.50000.00"
+        prep = "to" if "LANDLORD" in merch else "at"
+        return f"Rs.{amt}.00 debited from A/c XX1234 {prep} {merch} on {when}. Avl bal Rs.40000.00"
+
+
+def write_files(data: dict, out_dir: str) -> None:
+    """Two bank CSV layouts, SMS alerts and a JSON dump of profile, goals and subscriptions."""
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    txns = data["transactions"]
+    with open(out / "bank_statement_a.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["Date", "Narration", "Debit", "Credit"])
+        for t in txns:
+            deb, cred = (t["amount"], "") if t["direction"] == "debit" else ("", t["amount"])
+            w.writerow([f"{t['date']:%d/%m/%Y}", t["description"], deb, cred])
+    with open(out / "bank_statement_b.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["Txn Date", "Details", "Amount", "Balance"])
+        bal = 50000
+        for t in txns:
+            signed = t["amount"] if t["direction"] == "credit" else -t["amount"]
+            bal += signed
+            w.writerow([t["date"].isoformat(), t["description"], signed, bal])
+    debits = [t for t in txns if t["direction"] == "debit" and t["category"] not in FIXED][-15:]
+    (out / "sms_messages.txt").write_text("\n".join(sms_text(t) for t in debits) + "\n", encoding="utf-8")
+    with open(out / "profile_goals.json", "w", encoding="utf-8") as f:
+        json.dump({k: data[k] for k in ("profile", "goals", "recurring")}, f, indent=2, default=str)
+
 
 # ---------------------------------------------------------------------------
 # Person A Generator (Ledger, 3 CSVs, PDF, SMS)
 # ---------------------------------------------------------------------------
 
-MONTHS = [(2025, m) for m in range(4, 10)]  # Apr..Sep 2025
-OPENING_BALANCE = Decimal("25000.00")
+MONTHS_A = [(2025, m) for m in range(4, 10)]
+OPENING_BALANCE_A = Decimal("25000.00")
 
 
 @dataclass(frozen=True)
@@ -38,17 +159,17 @@ def build_ledger(seed: int = 42) -> list[list[Entry]]:
     """Return one list of entries per month, in date order."""
     rng = random.Random(seed)
     months: list[list[Entry]] = []
-    for idx, (y, m) in enumerate(MONTHS):
+    for idx, (y, m) in enumerate(MONTHS_A):
         out: list[Entry] = []
 
         def add(day: int, merchant: str, amount: int, direction: str, channel: str) -> None:
             out.append(Entry(date(y, m, day), merchant, Decimal(f"{amount}.00"), direction, channel))
 
         add(1, "ACME TECHNOLOGIES", 60000, "credit", "neft")
-        add(3, "LANDLORD RAJESH", 18000 if idx < 4 else 20000, "debit", "upi")  # rent increase
-        add(5, "NETFLIX", 649 if idx < 5 else 799, "debit", "ecom")  # price hike in Sep
+        add(3, "LANDLORD RAJESH", 18000 if idx < 4 else 20000, "debit", "upi")
+        add(5, "NETFLIX", 649 if idx < 5 else 799, "debit", "ecom")
         add(7, "SPOTIFY", 119, "debit", "ecom")
-        add(10, "GYMFIT", 1500, "debit", "pos")  # the unused one
+        add(10, "GYMFIT", 1500, "debit", "pos")
         add(12, "JIO PREPAID", 399, "debit", "upi")
         add(15, "BSES RAJDHANI", rng.randrange(1200, 1800, 10), "debit", "upi")
         for _ in range(rng.randint(6, 9)):
@@ -71,7 +192,6 @@ def build_ledger(seed: int = 42) -> list[list[Entry]]:
 
 
 def describe(e: Entry, n: int, style: str) -> str:
-    """Bank-style narration. style: 'dash' or 'slash' (two UPI layouts)."""
     vpa = e.merchant.lower().replace(" ", "") + "@okaxis"
     ref = str(412345000000 + 7919 * n)
     if e.channel == "upi":
@@ -83,24 +203,6 @@ def describe(e: Entry, n: int, style: str) -> str:
     if e.channel == "ecom":
         return f"ECOM PURCHASE {e.merchant} {998000000 + 37 * n}"
     return f"NEFT-{e.merchant}"
-
-
-def sms_text(e: Entry | dict) -> str:
-    if isinstance(e, dict):
-        when = (e.get("date") if isinstance(e.get("date"), str) else e.get("date", date.today()).strftime("%d-%b-%y"))
-        merchant = e.get("merchant", "Merchant")
-        amount = e.get("amount", 0)
-        direction = e.get("direction", "debit")
-        if direction == "credit":
-            return f"Rs.{amount} credited to A/c XX1234 on {when} by {merchant}. Avl bal Rs.50000.00"
-        prep = "to" if merchant in ("LANDLORD RAJESH", "Landlord") else "at"
-        return f"Rs.{amount} debited from A/c XX1234 {prep} {merchant} on {when}. Avl bal Rs.40000.00"
-
-    when = e.day.strftime("%d-%b-%y")
-    if e.direction == "credit":
-        return f"Rs.{e.amount} credited to A/c XX1234 on {when} by {e.merchant}. Avl bal Rs.50000.00"
-    prep = "to" if e.merchant == "LANDLORD RAJESH" else "at"
-    return f"Rs.{e.amount} debited from A/c XX1234 {prep} {e.merchant} on {when}. Avl bal Rs.40000.00"
 
 
 def _balances(entries: list[Entry], start: Decimal) -> list[Decimal]:
@@ -164,7 +266,7 @@ def generate(out_dir: Path, seed: int = 42) -> list[Entry]:
     """Write all synthetic files into out_dir and return the full ground-truth ledger."""
     out_dir.mkdir(parents=True, exist_ok=True)
     m = build_ledger(seed)
-    bal = OPENING_BALANCE
+    bal = OPENING_BALANCE_A
     starts = []
     for month in m:
         starts.append(bal)
@@ -177,173 +279,24 @@ def generate(out_dir: Path, seed: int = 42) -> list[Entry]:
     return [e for month in m for e in month]
 
 
-# ---------------------------------------------------------------------------
-# Person B Generator (Seed profiles, What-if scenarios, JSON fixtures)
-# ---------------------------------------------------------------------------
-
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
-
-
-def generate_profile() -> dict:
-    return {
-        "monthly_income": 75000,
-        "fixed_costs": {
-            "rent": 18000,
-            "insurance": 2500,
-            "wifi & utilities": 1500,
-            "bike emi": 4500,
-        },
-        "emergency_fund_current": 50000,
-        "emergency_fund_target": 250000,
-    }
-
-
-def generate_goals() -> list[dict]:
-    return [
-        {
-            "name": "Japan Autumn Trip",
-            "target_amount": 180000,
-            "current_amount": 40000,
-            "target_date": "2027-10-01",
-            "priority": 1,
-        },
-        {
-            "name": "MacBook Pro Upgrade",
-            "target_amount": 120000,
-            "current_amount": 25000,
-            "target_date": "2027-04-01",
-            "priority": 2,
-        },
-        {
-            "name": "Executive Certification",
-            "target_amount": 35000,
-            "current_amount": 10000,
-            "target_date": None,
-            "priority": 3,
-        },
-    ]
-
-
-def generate_recurring() -> list[dict]:
-    return [
-        {
-            "merchant": "Netflix",
-            "amount": 799,
-            "cadence": "monthly",
-            "last_seen": "2026-10-05",
-            "next_expected": "2026-11-05",
-            "status": "changed",
-        },
-        {
-            "merchant": "Spotify",
-            "amount": 119,
-            "cadence": "monthly",
-            "last_seen": "2026-10-07",
-            "next_expected": "2026-11-07",
-            "status": "active",
-        },
-        {
-            "merchant": "GymFit",
-            "amount": 1500,
-            "cadence": "monthly",
-            "last_seen": "2026-10-10",
-            "next_expected": "2026-11-10",
-            "status": "unused",
-        },
-    ]
-
-
-def build(as_of: date = date(2026, 10, 15)) -> dict:
-    """Build canonical seed dictionary compatible with test_phase0_data.py."""
-    entries = build_ledger(seed=42)
-    txns = []
-    category_map = {
-        "ACME TECHNOLOGIES": "Salary",
-        "LANDLORD RAJESH": "Rent",
-        "NETFLIX": "Entertainment",
-        "SPOTIFY": "Entertainment",
-        "GYMFIT": "Health",
-        "JIO PREPAID": "Utilities",
-        "BSES RAJDHANI": "Utilities",
-        "SWIGGY": "Dining",
-        "ZOMATO": "Dining",
-        "CAFE COFFEE DAY": "Dining",
-        "BIGBASKET": "Groceries",
-        "DMART": "Groceries",
-        "UBER INDIA": "Transport",
-        "AMAZON PAY INDIA": "Shopping",
-        "MYNTRA": "Shopping",
-    }
-
-    # Rent increase test cases from test_phase0_data
-    for month_entries in entries:
-        for e in month_entries:
-            cat = category_map.get(e.merchant, "Other")
-            amt = int(e.amount)
-            # Adjust rent values for test_phase0_data test assertions
-            if cat == "Rent":
-                amt = 22000 if e.day.month <= 6 else 24000
-            elif e.merchant == "NETFLIX":
-                amt = 649 if e.day.month <= 8 else 799
-            elif cat == "Dining":
-                # Ensure dining spike
-                amt = amt * 2 if e.day.month >= 9 else amt
-
-            txns.append({
-                "date": e.day,
-                "amount": amt,
-                "direction": e.direction,
-                "description": describe(e, 0, "dash"),
-                "merchant": e.merchant,
-                "category": cat,
-                "source": "csv",
-            })
-
-    # Filter to as_of date
-    txns = [t for t in txns if t["date"] <= as_of]
-
-    return {
-        "transactions": txns,
-        "profile": {
-            "monthly_income": 60000,
-            "fixed_costs": {"rent": 24000},
-            "emergency_fund_current": 10000,
-            "emergency_fund_target": 100000,
-        },
-        "goals": generate_goals(),
-        "recurring": generate_recurring(),
-    }
-
-
-def write_files(d: dict, out_dir_str: str) -> None:
-    out_dir = Path(out_dir_str)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "bank_statement_a.csv").write_text("Date,Narration,Amount\n", encoding="utf-8")
-    (out_dir / "bank_statement_b.csv").write_text("Date,Narration,Amount\n", encoding="utf-8")
-    (out_dir / "sms_messages.txt").write_text("Sample SMS log\n", encoding="utf-8")
-    (out_dir / "profile_goals.json").write_text(json.dumps(d, default=str), encoding="utf-8")
-
-
 def write_outputs() -> dict:
-    """Generate both output fixtures and files directory."""
     files_dir = Path(__file__).parent / "files"
     generate(files_dir)
-
-    out_dir = Path(OUTPUT_DIR)
+    out_dir = Path(__file__).parent / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
     b = build()
     write_files(b, str(out_dir))
     with open(out_dir / "seed_data.json", "w", encoding="utf-8") as f:
         json.dump(b, f, indent=2, default=str)
-
-    print(f"Synthetic outputs generated in {files_dir} and {out_dir}")
     return b
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=Path, default=Path(__file__).parent / "files")
-    args = ap.parse_args()
-    ledger = generate(args.out)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--as-of", default=date.today().isoformat())
+    ap.add_argument("--out", default="data/synthetic/output")
+    a = ap.parse_args()
+    d = build(date.fromisoformat(a.as_of))
+    write_files(d, a.out)
     write_outputs()
-    print(f"Wrote {len(ledger)} transactions to {args.out}")
+    print(f"Synthetic outputs generated.")

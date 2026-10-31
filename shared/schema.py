@@ -9,8 +9,8 @@ from sqlmodel import Field, SQLModel
 
 
 def utcnow() -> datetime:
-    """Naive UTC timestamp."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    """Timezone-aware UTC timestamp."""
+    return datetime.now(timezone.utc)
 
 
 _utcnow = utcnow
