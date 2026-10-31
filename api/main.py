@@ -36,10 +36,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Finance Coach API", version="0.1.0", lifespan=lifespan)
 
 # CORS setup
+
 cors_origin = os.getenv("CORS_ORIGIN", "http://localhost:5173")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[cors_origin, "http://localhost:5173", "http://localhost:3000"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
