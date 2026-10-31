@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
-from api.db import get_session  # noqa: E402
+from shared.db import get_session  # noqa: E402
 from api.main import app  # noqa: E402
 from shared.schema import Transaction  # noqa: E402
 

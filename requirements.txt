@@ -3,15 +3,11 @@ fastapi
 uvicorn[standard]
 sqlmodel
 pydantic
-pandas
 pdfplumber
 python-multipart
 python-dotenv
 httpx
-websockets
 google-generativeai
 pytest
-pytest-asyncio
-rapidfuzz
 python-dateutil
 reportlab

@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import Depends, Query
 from sqlmodel import Session
 
-from api.db import get_session
+from shared.db import get_session
 from engine.planner.store import SqlStore
 
 

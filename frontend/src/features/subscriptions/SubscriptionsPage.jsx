@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Repeat,
   AlertTriangle,
@@ -41,6 +41,15 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     loadSubscriptions();
+  }, []);
+
+  // Reload when another part of the app (e.g. the voice bar) changes data.
+  const reloadRef = useRef(loadSubscriptions);
+  reloadRef.current = loadSubscriptions;
+  useEffect(() => {
+    const onChange = () => reloadRef.current();
+    window.addEventListener('data-changed', onChange);
+    return () => window.removeEventListener('data-changed', onChange);
   }, []);
 
   const handleMarkUnused = async (sub) => {

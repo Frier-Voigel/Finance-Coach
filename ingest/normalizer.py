@@ -77,9 +77,14 @@ def clean_merchant(description: str) -> str:
     return re.sub(r"\s+", " ", s).strip(" .") or raw.upper()
 
 
+def _amt(a) -> str:
+    """Stable text for an amount: 649, 649.0 and 649.00 all give '649' (DB and parser may differ)."""
+    return format(Decimal(str(a)).normalize(), "f")
+
+
 def txn_key(t: ParsedTxn) -> tuple:
-    """Base identity of a transaction used for dedupe."""
-    return (t.date.isoformat(), str(t.amount), t.direction, t.merchant, t.account)
+    """Base identity of a transaction used for dedupe (works for parsed rows and DB rows)."""
+    return (t.date.isoformat(), _amt(t.amount), t.direction, t.merchant, t.account or "")
 
 
 def dedupe(new: list[ParsedTxn], existing_keys: set[tuple] | None = None) -> list[ParsedTxn]:

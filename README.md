@@ -122,7 +122,7 @@ finance-coach/
 ├── data/synthetic/          # Synthetic test datasets
 │   ├── files/               # Realistic test files: bank1 (CSV), bank2 (CSV), bank3 (CSV), statement (PDF), sms.txt
 │   ├── generate.py          # Generator for 6 months of banking ledger & fixtures
-│   └── output/              # Seed fixtures (bank_statement.csv, sms_messages.txt, seed_data.json)
+│   └── output/              # generated fixtures (git-ignored; created by `python -m shared.seed`)
 └── frontend/                # Unified React 18 + Vite + Tailwind CSS SPA
     └── src/
         ├── App.jsx          # Route definitions & top-level layout

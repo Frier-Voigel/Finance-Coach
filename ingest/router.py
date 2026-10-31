@@ -56,9 +56,7 @@ def _existing_keys() -> set[tuple]:
         from shared.schema import Transaction
         from sqlmodel import Session, select
         with Session(get_engine()) as session:
-            db_txns = session.exec(select(Transaction)).all()
-            for t in db_txns:
-                keys.add((t.date, t.amount, t.direction, t.merchant))
+            keys |= keys_for(session.exec(select(Transaction).order_by(Transaction.id)).all())
     except Exception:
         pass
     return keys

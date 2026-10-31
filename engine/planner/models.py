@@ -2,24 +2,16 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
-
-Rupees = int  # whole rupees
 
 
 class ProfileIn(BaseModel):
     monthly_income: int = Field(ge=0)
-    fixed_costs: dict[str, int] = Field(default_factory=dict)
+    fixed_costs: dict[str, Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     emergency_fund_current: int = Field(default=0, ge=0)
     emergency_fund_target: int = Field(default=0, ge=0)
-
-    @model_validator(mode="after")
-    def _non_negative_costs(self):
-        if any(v < 0 for v in self.fixed_costs.values()):
-            raise ValueError("fixed_costs values must be >= 0")
-        return self
 
 
 class GoalIn(BaseModel):

@@ -1,0 +1,289 @@
+diff --git a/engine/categorize/router.py b/engine/categorize/router.py
+index 4334652..21ebd89 100644
+--- a/engine/categorize/router.py
++++ b/engine/categorize/router.py
+@@ -59,7 +59,7 @@ def list_transactions(
+         stmt = stmt.where(Transaction.date >= from_date)
+     if to_date:
+         stmt = stmt.where(Transaction.date <= to_date)
+-    stmt = stmt.offset(offset).limit(limit)
++    stmt = stmt.order_by(Transaction.date.desc(), Transaction.id.desc()).offset(offset).limit(limit)
+     return list(session.exec(stmt).all())
+ 
+ 
+diff --git a/engine/recurring/detector.py b/engine/recurring/detector.py
+index 53ca759..2ee82b3 100644
+--- a/engine/recurring/detector.py
++++ b/engine/recurring/detector.py
+@@ -36,6 +36,11 @@ def _modal_amount(amounts: list[Decimal]) -> Decimal:
+     return max(freq, key=lambda k: freq[k])
+ 
+ 
++def _price_steps(amounts: list[Decimal]) -> int:
++    """Count jumps of more than 5% between consecutive payments."""
++    return sum(1 for a, b in zip(amounts, amounts[1:]) if a == 0 or abs(float(b - a)) / float(a) > 0.05)
++
++
+ def detect_recurring(txns: list[Transaction]) -> list[dict]:
+     """Detect recurring merchants from a transaction list.
+ 
+@@ -45,8 +50,8 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
+     2. Skip groups with fewer than 3 transactions.
+     3. Sort by date; compute gaps between consecutive dates.
+     4. Classify cadence via ``cadence_label`` (median gap ± tolerance).
+-    5. Compute modal amount; flag ``"changed"`` if the latest amount
+-       differs by >5% from the modal.
++    5. Only debits count. Allow at most one >5% price change in the history;
++       flag ``"changed"`` if that change happened in the last 3 payments.
+ 
+     Returns
+     -------
+@@ -57,6 +62,8 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
+     # Group by merchant
+     groups: dict[str, list[Transaction]] = {}
+     for t in txns:
++        if t.direction != "debit":  # salary, refunds and other money in are not subscriptions
++            continue
+         groups.setdefault(t.merchant, []).append(t)
+ 
+     results: list[dict] = []
+@@ -77,19 +84,17 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
+         if label is None:
+             continue
+ 
+-        # Amount regularity check: all within 5% of modal
+-        modal = _modal_amount(amounts)
+-        modal_f = float(modal)
+-        if not all(abs(float(a) - modal_f) / modal_f <= 0.05 for a in amounts[:-1]):
++        # Amount regularity: allow one price change (a hike that has stuck); several means irregular spending.
++        if _price_steps(amounts) > 1:
+             continue
++        modal = _modal_amount(amounts)
+ 
+         last_seen = dates[-1]
+         cadence_days = {"weekly": 7, "monthly": 30, "yearly": 365}[label]
+         next_expected = last_seen + timedelta(days=cadence_days)
+ 
+         # Determine status
+-        latest = amounts[-1]
+-        changed = abs(float(latest) - modal_f) / modal_f > 0.05
++        changed = _price_steps(amounts[-4:]) > 0  # price moved within the last 3 payments
+         status = "changed" if changed else "active"
+ 
+         results.append(
+diff --git a/frontend/src/features/review/ReviewPage.jsx b/frontend/src/features/review/ReviewPage.jsx
+index 82c1fe8..bc996a9 100644
+--- a/frontend/src/features/review/ReviewPage.jsx
++++ b/frontend/src/features/review/ReviewPage.jsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useState, useMemo } from 'react';
++import React, { useEffect, useRef, useState, useMemo } from 'react';
+ import {
+   Search,
+   Filter,
+@@ -78,6 +78,15 @@ export default function ReviewPage() {
+     loadTransactions();
+   }, [selectedCategory, selectedSource, selectedMerchantQuery(merchantSearch), fromDate, toDate]);
+ 
++  // Reload when another part of the app (e.g. the voice bar) changes data.
++  const reloadRef = useRef(loadTransactions);
++  reloadRef.current = loadTransactions;
++  useEffect(() => {
++    const onChange = () => reloadRef.current();
++    window.addEventListener('data-changed', onChange);
++    return () => window.removeEventListener('data-changed', onChange);
++  }, []);
++
+   function selectedMerchantQuery(m) {
+     return m.trim();
+   }
+diff --git a/frontend/src/features/subscriptions/SubscriptionsPage.jsx b/frontend/src/features/subscriptions/SubscriptionsPage.jsx
+index 3211766..8340189 100644
+--- a/frontend/src/features/subscriptions/SubscriptionsPage.jsx
++++ b/frontend/src/features/subscriptions/SubscriptionsPage.jsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useState, useMemo } from 'react';
++import React, { useEffect, useRef, useState, useMemo } from 'react';
+ import {
+   Repeat,
+   AlertTriangle,
+@@ -43,6 +43,15 @@ export default function SubscriptionsPage() {
+     loadSubscriptions();
+   }, []);
+ 
++  // Reload when another part of the app (e.g. the voice bar) changes data.
++  const reloadRef = useRef(loadSubscriptions);
++  reloadRef.current = loadSubscriptions;
++  useEffect(() => {
++    const onChange = () => reloadRef.current();
++    window.addEventListener('data-changed', onChange);
++    return () => window.removeEventListener('data-changed', onChange);
++  }, []);
++
+   const handleMarkUnused = async (sub) => {
+     if (!sub.merchant_hash) return;
+ 
+diff --git a/ingest/normalizer.py b/ingest/normalizer.py
+index 6fbff21..8483871 100644
+--- a/ingest/normalizer.py
++++ b/ingest/normalizer.py
+@@ -77,9 +77,14 @@ def clean_merchant(description: str) -> str:
+     return re.sub(r"\s+", " ", s).strip(" .") or raw.upper()
+ 
+ 
++def _amt(a) -> str:
++    """Stable text for an amount: 649, 649.0 and 649.00 all give '649' (DB and parser may differ)."""
++    return format(Decimal(str(a)).normalize(), "f")
++
++
+ def txn_key(t: ParsedTxn) -> tuple:
+-    """Base identity of a transaction used for dedupe."""
+-    return (t.date.isoformat(), str(t.amount), t.direction, t.merchant, t.account)
++    """Base identity of a transaction used for dedupe (works for parsed rows and DB rows)."""
++    return (t.date.isoformat(), _amt(t.amount), t.direction, t.merchant, t.account or "")
+ 
+ 
+ def dedupe(new: list[ParsedTxn], existing_keys: set[tuple] | None = None) -> list[ParsedTxn]:
+diff --git a/ingest/router.py b/ingest/router.py
+index 470f84f..fc026ce 100644
+--- a/ingest/router.py
++++ b/ingest/router.py
+@@ -56,9 +56,7 @@ def _existing_keys() -> set[tuple]:
+         from shared.schema import Transaction
+         from sqlmodel import Session, select
+         with Session(get_engine()) as session:
+-            db_txns = session.exec(select(Transaction)).all()
+-            for t in db_txns:
+-                keys.add((t.date, t.amount, t.direction, t.merchant))
++            keys |= keys_for(session.exec(select(Transaction).order_by(Transaction.id)).all())
+     except Exception:
+         pass
+     return keys
+diff --git a/tests/test_b_voice_guard.py b/tests/test_b_voice_guard.py
+index 8220f5e..83c5a2f 100644
+--- a/tests/test_b_voice_guard.py
++++ b/tests/test_b_voice_guard.py
+@@ -83,3 +83,22 @@ def test_token_request_and_client(monkeypatch):
+     monkeypatch.setenv("WISPR_API_KEY", "fl-abc")
+     out = get_client_token("u1", opener=lambda req, timeout: Resp(b'{"access_token":"jwt","expires_in":3600}'))
+     assert out["access_token"] == "jwt" and out["ws_url"].startswith("wss://") and out["ws_url"].endswith("Bearer%20jwt")
++
++
++@pytest.mark.parametrize("text, merchant, category", [
++    ("Mark Swiggy as Food", "Swiggy", "Food"),
++    ("change netflix category to entertainment", "netflix", "entertainment"),
++    ("change category of netflix to entertainment", "netflix", "entertainment"),
++    ("recategorize netflix as entertainment", "netflix", "entertainment"),
++    ("put netflix under entertainment", "netflix", "entertainment"),
++    ("netflix should be entertainment", "netflix", "entertainment"),
++    ("mark swiggy as food category", "swiggy", "food"),
++])
++def test_recategorise_phrasings(text, merchant, category):
++    got = parse_command(text, TODAY)[0]
++    assert got == {"type": "CORRECT_CATEGORY", "params": {"merchant": merchant, "category": category}}
++
++
++def test_correction_pattern_does_not_swallow_other_commands():
++    assert parse_command("put 500 into my laptop fund", TODAY)[0]["type"] == "UNKNOWN"
++    assert parse_command("what if I cut dining out by 30%?", TODAY)[0]["type"] == "WHAT_IF"
+diff --git a/tests/test_dedupe_keys.py b/tests/test_dedupe_keys.py
+new file mode 100644
+index 0000000..fc072da
+--- /dev/null
++++ b/tests/test_dedupe_keys.py
+@@ -0,0 +1,22 @@
++"""DB rows and parsed rows must make the same dedupe key, or re-uploading a statement duplicates it."""
++from datetime import date
++from decimal import Decimal
++from types import SimpleNamespace
++
++from ingest.normalizer import dedupe, keys_for, txn_key
++
++
++def _row(amount, account):
++    return SimpleNamespace(date=date(2025, 4, 5), amount=amount, direction="debit", merchant="NETFLIX", account=account)
++
++
++def test_equivalent_amounts_and_empty_account_give_one_key():
++    assert txn_key(_row(Decimal("649"), "")) == txn_key(_row(Decimal("649.00"), None)) == txn_key(_row(Decimal("649.0"), ""))
++    assert txn_key(_row(Decimal("600"), "")) != txn_key(_row(Decimal("60"), ""))
++
++
++def test_reupload_against_db_style_rows_is_deduped():
++    db_rows = [_row(Decimal("649.00"), None)]
++    parsed = [_row(Decimal("649"), "")]
++    assert dedupe(parsed, keys_for(db_rows)) == []
++    assert dedupe(parsed + parsed, keys_for(db_rows)) == [parsed[0]]  # a genuine second identical charge survives
+diff --git a/tests/test_recurring_fixes.py b/tests/test_recurring_fixes.py
+new file mode 100644
+index 0000000..7bc6afd
+--- /dev/null
++++ b/tests/test_recurring_fixes.py
+@@ -0,0 +1,37 @@
++"""Regression tests: salary is not a subscription; a price hike that sticks must not hide the subscription."""
++from datetime import date
++from decimal import Decimal
++
++from engine.recurring.detector import detect_recurring
++from shared.schema import Transaction
++
++
++def _series(merchant, amounts, direction="debit"):
++    return [
++        Transaction(date=date(2025 + (3 + i) // 12, (3 + i) % 12 + 1, 5), amount=Decimal(a), direction=direction,
++                    description=merchant, merchant=merchant, category="x", category_source="rule", source="csv")
++        for i, a in enumerate(amounts)
++    ]
++
++
++def _by_name(txns):
++    return {r["merchant"]: r["status"] for r in detect_recurring(txns)}
++
++
++def test_salary_credits_are_not_subscriptions():
++    got = _by_name(_series("ACME TECHNOLOGIES", [60000] * 6, direction="credit") + _series("NETFLIX", [649] * 6))
++    assert "ACME TECHNOLOGIES" not in got and got["NETFLIX"] == "active"
++
++
++def test_price_hike_that_sticks_keeps_the_subscription():
++    for amounts in ([649] * 5 + [799] * 2, [649] * 3 + [799] * 3, [649] * 3 + [799] * 5):
++        assert "NETFLIX" in _by_name(_series("NETFLIX", amounts)), amounts
++
++
++def test_recent_hike_is_changed_and_old_hike_is_active_again():
++    assert _by_name(_series("NETFLIX", [649] * 5 + [799]))["NETFLIX"] == "changed"
++    assert _by_name(_series("NETFLIX", [649] * 3 + [799] * 6))["NETFLIX"] == "active"
++
++
++def test_erratic_amounts_are_still_not_a_subscription():
++    assert "GROCER" not in _by_name(_series("GROCER", [500, 900, 450, 1200, 300, 800]))
+diff --git a/voice/intent.py b/voice/intent.py
+index 000c7b9..c4ccd37 100644
+--- a/voice/intent.py
++++ b/voice/intent.py
+@@ -14,6 +14,11 @@ _MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_name) if m} | {
+ _UNIT = {"crore": 10**7, "cr": 10**7, "lakh": 10**5, "lakhs": 10**5, "lac": 10**5, "k": 1000, "thousand": 1000}
+ _AMT = r"(?:rs\.?|₹|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(crore|cr|lakhs?|lac|k|thousand)?\b"
+ _FIXED = r"rent|emi|insurance|internet|electricity|loan"
++_CORRECT = re.compile(
++    r"\b(?:mark|set|change|categori[sz]e|recategori[sz]e|move|put|tag|label|classify)\s+(?!\d|rs\b|₹)"
++    r"(?:the\s+|my\s+|all\s+)*(?:category\s+(?:of|for)\s+)?(.+?)(?:\s+(?:category|transactions?|payments?|charges?))?\s+"
++    r"(?:as|to|into|under)\s+(?:the\s+)?(?:category\s+)?(.+)", re.I)
++_SHOULD_BE = re.compile(r"^(?:the\s+|my\s+)?(.+?)\s+should be\s+(?:a\s+|an\s+|under\s+)?(.+?)\.?$", re.I)
+ 
+ 
+ def parse_amount(text: str) -> int | None:
+@@ -63,10 +68,11 @@ def _clause(c: str, today: date) -> dict | None:
+             amt = parse_amount(low[low.index("spend") + 5:]) or 0
+             return _intent("WHAT_IF", kind="category_abs", category=m.group(4).strip(), delta=-amt if m.group(3) == "less" else amt)
+         return None
+-    m = re.search(r"\b(?:mark|set|change|categori[sz]e|move)\s+(?:the\s+)?(.+?)\s+(?:as|to|into)\s+(.+)", c, re.I) or \
++    m = _CORRECT.search(c) or _SHOULD_BE.search(c.strip()) or \
+         re.search(r"(?:that\s+)?(.+?)\s+(?:one|transaction|payment)\s+is\s+(.+?)(?:,|\s+not\b|$)", c, re.I)
+     if m:
+-        return _intent("CORRECT_CATEGORY", merchant=m.group(1).strip(), category=m.group(2).strip().rstrip("."))
++        cat = re.sub(r"\s+category$", "", m.group(2).strip().rstrip("."), flags=re.I)
++        return _intent("CORRECT_CATEGORY", merchant=m.group(1).strip(), category=cat)
+     m = re.search(rf"\b(?:i earn|i make|my (?:monthly )?(?:income|salary) is)\s*{_AMT}", low)
+     if m:
+         return _intent("SET_PROFILE", monthly_income=parse_amount(low[m.start(): ]))
