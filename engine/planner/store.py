@@ -13,12 +13,12 @@ from shared.schema import Goal, Nudge, Profile, Recurring, Report, Rule, Transac
 
 
 def _goal(g: Goal) -> dict:
-    return {"id": g.id, "name": g.name, "target_amount": g.target_amount, "current_amount": g.current_amount,
+    return {"id": g.id, "name": g.name, "target_amount": int(g.target_amount), "current_amount": int(g.current_amount),
             "target_date": g.target_date, "priority": g.priority}
 
 
 def _txn(t: Transaction) -> dict:
-    return {"id": t.id, "date": t.date, "amount": t.amount, "direction": t.direction, "category": t.category or "Uncategorized",
+    return {"id": t.id, "date": t.date, "amount": int(t.amount), "direction": t.direction, "category": t.category or "Uncategorized",
             "merchant": t.merchant, "description": t.description}
 
 
@@ -35,8 +35,8 @@ class SqlStore:
         p = self.s.exec(select(Profile)).first()
         if p is None:
             return None
-        return {"monthly_income": p.monthly_income, "fixed_costs": json.loads(p.fixed_costs_json),
-                "emergency_fund_current": p.emergency_fund_current, "emergency_fund_target": p.emergency_fund_target,
+        return {"monthly_income": int(p.monthly_income), "fixed_costs": json.loads(p.fixed_costs_json),
+                "emergency_fund_current": int(p.emergency_fund_current), "emergency_fund_target": int(p.emergency_fund_target),
                 "updated_at": p.updated_at}
 
     def save_profile(self, d: dict) -> dict:
@@ -101,7 +101,7 @@ class SqlStore:
 
     def list_recurring(self) -> list[dict]:
         """Subscriptions detected by A's engine (read-only)."""
-        return [{"merchant": r.merchant, "amount": r.amount, "cadence": r.cadence, "status": r.status}
+        return [{"merchant": r.merchant, "amount": int(r.amount), "cadence": r.cadence, "status": r.status}
                 for r in self.s.exec(select(Recurring))]
 
     # nudges

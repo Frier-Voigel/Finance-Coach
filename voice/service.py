@@ -74,6 +74,13 @@ def _write(store, intent: dict, patch_txn: PatchTxn, today: date, transcript: st
     if not hits:
         return {"ok": False, "message": f"No transaction matching '{p['merchant']}' was found."}
     cat = p["category"].strip().title()
+    if hasattr(store, "s"):
+        try:
+            from engine.categorize.service import patch_transaction as _pt
+            res = _pt(hits[0]["id"], cat, store.s)
+            return {"ok": True, "message": f"Recategorised '{p['merchant']}' as {cat} and learned rule for future transactions.", "transaction_id": hits[0]["id"], "result": res}
+        except Exception:
+            pass
     res = patch_txn(hits[0]["id"], cat)
     if res.get("stub"):
         return {"ok": False, "message": res["message"]}

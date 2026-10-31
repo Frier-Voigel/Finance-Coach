@@ -1,0 +1,28 @@
+Rs.60000.00 credited to A/c XX1234 on 01-Sep-25 by ACME TECHNOLOGIES. Avl bal Rs.50000.00
+Rs.360.00 debited from A/c XX1234 at SWIGGY on 02-Sep-25. Avl bal Rs.40000.00
+Rs.330.00 debited from A/c XX1234 at UBER INDIA on 02-Sep-25. Avl bal Rs.40000.00
+Rs.20000.00 debited from A/c XX1234 to LANDLORD RAJESH on 03-Sep-25. Avl bal Rs.40000.00
+Rs.470.00 debited from A/c XX1234 at SWIGGY on 03-Sep-25. Avl bal Rs.40000.00
+Rs.1240.00 debited from A/c XX1234 at BIGBASKET on 04-Sep-25. Avl bal Rs.40000.00
+Rs.130.00 debited from A/c XX1234 at UBER INDIA on 04-Sep-25. Avl bal Rs.40000.00
+Rs.799.00 debited from A/c XX1234 at NETFLIX on 05-Sep-25. Avl bal Rs.40000.00
+Rs.119.00 debited from A/c XX1234 at SPOTIFY on 07-Sep-25. Avl bal Rs.40000.00
+Rs.490.00 debited from A/c XX1234 at SWIGGY on 07-Sep-25. Avl bal Rs.40000.00
+Rs.520.00 debited from A/c XX1234 at BIGBASKET on 07-Sep-25. Avl bal Rs.40000.00
+Rs.190.00 debited from A/c XX1234 at SWIGGY on 08-Sep-25. Avl bal Rs.40000.00
+Rs.320.00 debited from A/c XX1234 at SWIGGY on 08-Sep-25. Avl bal Rs.40000.00
+Rs.1290.00 debited from A/c XX1234 at MYNTRA on 08-Sep-25. Avl bal Rs.40000.00
+Rs.1500.00 debited from A/c XX1234 at GYMFIT on 10-Sep-25. Avl bal Rs.40000.00
+Rs.399.00 debited from A/c XX1234 at JIO PREPAID on 12-Sep-25. Avl bal Rs.40000.00
+Rs.1900.00 debited from A/c XX1234 at DMART on 14-Sep-25. Avl bal Rs.40000.00
+Rs.260.00 debited from A/c XX1234 at UBER INDIA on 14-Sep-25. Avl bal Rs.40000.00
+Rs.1650.00 debited from A/c XX1234 at BSES RAJDHANI on 15-Sep-25. Avl bal Rs.40000.00
+Rs.500.00 debited from A/c XX1234 at ZOMATO on 19-Sep-25. Avl bal Rs.40000.00
+Rs.320.00 debited from A/c XX1234 at UBER INDIA on 21-Sep-25. Avl bal Rs.40000.00
+Rs.460.00 debited from A/c XX1234 at SWIGGY on 22-Sep-25. Avl bal Rs.40000.00
+Rs.560.00 debited from A/c XX1234 at ZOMATO on 24-Sep-25. Avl bal Rs.40000.00
+Rs.2030.00 debited from A/c XX1234 at AMAZON PAY INDIA on 24-Sep-25. Avl bal Rs.40000.00
+Rs.350.00 debited from A/c XX1234 at CAFE COFFEE DAY on 26-Sep-25. Avl bal Rs.40000.00
+Rs.920.00 debited from A/c XX1234 at BIGBASKET on 26-Sep-25. Avl bal Rs.40000.00
+Rs.850.00 debited from A/c XX1234 at AMAZON PAY INDIA on 26-Sep-25. Avl bal Rs.40000.00
+Rs.350.00 debited from A/c XX1234 at UBER INDIA on 28-Sep-25. Avl bal Rs.40000.00

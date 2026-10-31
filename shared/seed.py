@@ -7,6 +7,7 @@ Usage:
 from __future__ import annotations
 
 import datetime as dt
+from decimal import Decimal
 import json
 import os
 import sys
@@ -22,12 +23,21 @@ load_dotenv()
 
 from sqlmodel import SQLModel, Session
 
-from api.db import engine
+from shared.db import get_engine
 from shared.schema import Goal, Nudge, Profile, Recurring, Transaction
+
+
+def _parse_date(val) -> dt.date | None:
+    if val is None:
+        return None
+    if isinstance(val, dt.date):
+        return val
+    return dt.date.fromisoformat(str(val))
 
 
 def seed_database(data: dict) -> None:
     """Drop and recreate all tables, then insert initial dataset."""
+    engine = get_engine()
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
@@ -37,15 +47,15 @@ def seed_database(data: dict) -> None:
         for t in txns:
             s.add(
                 Transaction(
-                    date=dt.date.fromisoformat(t["date"]),
-                    amount=int(t["amount"]),
+                    date=_parse_date(t["date"]),
+                    amount=Decimal(str(t["amount"])),
                     direction=t["direction"],
                     description=t["description"],
-                    merchant=t.get("merchant"),
-                    category=t.get("category"),
+                    merchant=t.get("merchant", ""),
+                    category=t.get("category", "Other"),
                     category_source="rule" if t.get("category") else None,
                     source=t.get("source", "csv"),
-                    raw_text=t.get("raw_text"),
+                    raw_text=t.get("raw_text", ""),
                 )
             )
 
@@ -54,10 +64,10 @@ def seed_database(data: dict) -> None:
         if prof:
             s.add(
                 Profile(
-                    monthly_income=int(prof.get("monthly_income", 0)),
+                    monthly_income=Decimal(str(prof.get("monthly_income", 0))),
                     fixed_costs_json=json.dumps(prof.get("fixed_costs", {})),
-                    emergency_fund_current=int(prof.get("emergency_fund_current", 0)),
-                    emergency_fund_target=int(prof.get("emergency_fund_target", 0)),
+                    emergency_fund_current=Decimal(str(prof.get("emergency_fund_current", 0))),
+                    emergency_fund_target=Decimal(str(prof.get("emergency_fund_target", 0))),
                 )
             )
 
@@ -66,9 +76,9 @@ def seed_database(data: dict) -> None:
             s.add(
                 Goal(
                     name=g["name"],
-                    target_amount=int(g["target_amount"]),
-                    current_amount=int(g.get("current_amount", 0)),
-                    target_date=dt.date.fromisoformat(g["target_date"]) if g.get("target_date") else None,
+                    target_amount=Decimal(str(g["target_amount"])),
+                    current_amount=Decimal(str(g.get("current_amount", 0))),
+                    target_date=_parse_date(g.get("target_date")),
                     priority=int(g.get("priority", 1)),
                 )
             )
@@ -78,10 +88,10 @@ def seed_database(data: dict) -> None:
             s.add(
                 Recurring(
                     merchant=r["merchant"],
-                    amount=int(r["amount"]),
+                    amount=Decimal(str(r["amount"])),
                     cadence=r.get("cadence", "monthly"),
-                    last_seen=dt.date.fromisoformat(r["last_seen"]) if r.get("last_seen") else None,
-                    next_expected=dt.date.fromisoformat(r["next_expected"]) if r.get("next_expected") else None,
+                    last_seen=_parse_date(r.get("last_seen")),
+                    next_expected=_parse_date(r.get("next_expected")),
                     status=r.get("status", "active"),
                 )
             )

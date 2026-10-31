@@ -1,1 +1,1 @@
-"""Transaction categorisation and rule learning engine."""
+# categorize sub-package

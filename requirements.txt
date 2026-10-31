@@ -1,14 +1,17 @@
-# Shared requirements for both Person A and Person B
+# Unified requirements for Person A (Data Pipeline) and Person B (Money Model & Voice)
 fastapi
 uvicorn[standard]
 sqlmodel
 pydantic
-python-dotenv
-python-dateutil
-google-generativeai
-httpx
-python-multipart
 pandas
 pdfplumber
-rapidfuzz
+python-multipart
+python-dotenv
+httpx
+websockets
+google-generativeai
 pytest
+pytest-asyncio
+rapidfuzz
+python-dateutil
+reportlab

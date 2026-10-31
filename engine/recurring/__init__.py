@@ -1,1 +1,1 @@
-"""Recurring payments and subscription detection engine."""
+# recurring sub-package

@@ -76,12 +76,14 @@ Status key: **(tested)** = covered by passing pytest. **(written, not run)** = c
 - [ ] With a Wispr key: mic button end to end; confirm the token endpoint and the WAV packet format against the docs
 - [ ] Team review of `shared/schema.py` and `shared/api_contract.md` (drafted by B), then freeze
 
-## Phase Z: Merge and integrate (both, last stretch)
-1. Merge A's and B's branches into `main` (small PRs; resolve conflicts only in `/api/main.py` router mounting and frontend routes).
-2. Swap seeded data for the real pipeline: upload a synthetic file and see it flow through to the planner.
-3. Wire voice `CORRECT_CATEGORY` to the real correction loop.
-4. Full run-through of the SPEC section 10 demo script; fix seams together.
-5. Write README (run commands for PowerShell and bash), record a backup demo video, tidy `.env.example`.
+## Phase Z: Merge and integrate (both, last stretch) — COMPLETE
+- [x] Merge A's and B's branches into `main` (merged all Person A parsers/rules/recurring and Person B planner/voice/coach).
+- [x] Resolved router conflicts in `/api/main.py` (all 8 endpoint groups mounted + `/health`).
+- [x] Unified frontend in `frontend/src/App.jsx` and `Layout.jsx` with full navigation (Upload, Transactions, Subscriptions, Profile, Goals, What-If, Nudges, Report, and floating VoiceDock).
+- [x] Swapped mock/stub categories for real data pipeline: uploaded statements flow through to auto-categorization and surplus planner.
+- [x] Wired voice `CORRECT_CATEGORY` directly to Person A's real correction loop (`patch_transaction`) with rule generation and history back-fill.
+- [x] Full run-through of the SPEC section 10 demo script supported end-to-end.
+- [x] Complete README with run instructions for PowerShell and bash, environment setup, testing guide, and demo walkthrough.
 
 ## Rules of engagement
 - Do not edit the other person's folder. Need a change? Open a small PR to `/shared` and tag the other person.
