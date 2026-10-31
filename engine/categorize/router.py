@@ -59,7 +59,7 @@ def list_transactions(
         stmt = stmt.where(Transaction.date >= from_date)
     if to_date:
         stmt = stmt.where(Transaction.date <= to_date)
-    stmt = stmt.offset(offset).limit(limit)
+    stmt = stmt.order_by(Transaction.date.desc(), Transaction.id.desc()).offset(offset).limit(limit)
     return list(session.exec(stmt).all())
 
 

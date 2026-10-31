@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Search,
   Filter,
@@ -77,6 +77,15 @@ export default function ReviewPage() {
   useEffect(() => {
     loadTransactions();
   }, [selectedCategory, selectedSource, selectedMerchantQuery(merchantSearch), fromDate, toDate]);
+
+  // Reload when another part of the app (e.g. the voice bar) changes data.
+  const reloadRef = useRef(loadTransactions);
+  reloadRef.current = loadTransactions;
+  useEffect(() => {
+    const onChange = () => reloadRef.current();
+    window.addEventListener('data-changed', onChange);
+    return () => window.removeEventListener('data-changed', onChange);
+  }, []);
 
   function selectedMerchantQuery(m) {
     return m.trim();

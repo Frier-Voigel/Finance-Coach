@@ -36,6 +36,11 @@ def _modal_amount(amounts: list[Decimal]) -> Decimal:
     return max(freq, key=lambda k: freq[k])
 
 
+def _price_steps(amounts: list[Decimal]) -> int:
+    """Count jumps of more than 5% between consecutive payments."""
+    return sum(1 for a, b in zip(amounts, amounts[1:]) if a == 0 or abs(float(b - a)) / float(a) > 0.05)
+
+
 def detect_recurring(txns: list[Transaction]) -> list[dict]:
     """Detect recurring merchants from a transaction list.
 
@@ -45,8 +50,8 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
     2. Skip groups with fewer than 3 transactions.
     3. Sort by date; compute gaps between consecutive dates.
     4. Classify cadence via ``cadence_label`` (median gap ± tolerance).
-    5. Compute modal amount; flag ``"changed"`` if the latest amount
-       differs by >5% from the modal.
+    5. Only debits count. Allow at most one >5% price change in the history;
+       flag ``"changed"`` if that change happened in the last 3 payments.
 
     Returns
     -------
@@ -57,6 +62,8 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
     # Group by merchant
     groups: dict[str, list[Transaction]] = {}
     for t in txns:
+        if t.direction != "debit":  # salary, refunds and other money in are not subscriptions
+            continue
         groups.setdefault(t.merchant, []).append(t)
 
     results: list[dict] = []
@@ -77,19 +84,17 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
         if label is None:
             continue
 
-        # Amount regularity check: all within 5% of modal
-        modal = _modal_amount(amounts)
-        modal_f = float(modal)
-        if not all(abs(float(a) - modal_f) / modal_f <= 0.05 for a in amounts[:-1]):
+        # Amount regularity: allow one price change (a hike that has stuck); several means irregular spending.
+        if _price_steps(amounts) > 1:
             continue
+        modal = _modal_amount(amounts)
 
         last_seen = dates[-1]
         cadence_days = {"weekly": 7, "monthly": 30, "yearly": 365}[label]
         next_expected = last_seen + timedelta(days=cadence_days)
 
         # Determine status
-        latest = amounts[-1]
-        changed = abs(float(latest) - modal_f) / modal_f > 0.05
+        changed = _price_steps(amounts[-4:]) > 0  # price moved within the last 3 payments
         status = "changed" if changed else "active"
 
         results.append(

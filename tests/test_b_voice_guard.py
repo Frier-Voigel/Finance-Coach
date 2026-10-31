@@ -83,3 +83,22 @@ def test_token_request_and_client(monkeypatch):
     monkeypatch.setenv("WISPR_API_KEY", "fl-abc")
     out = get_client_token("u1", opener=lambda req, timeout: Resp(b'{"access_token":"jwt","expires_in":3600}'))
     assert out["access_token"] == "jwt" and out["ws_url"].startswith("wss://") and out["ws_url"].endswith("Bearer%20jwt")
+
+
+@pytest.mark.parametrize("text, merchant, category", [
+    ("Mark Swiggy as Food", "Swiggy", "Food"),
+    ("change netflix category to entertainment", "netflix", "entertainment"),
+    ("change category of netflix to entertainment", "netflix", "entertainment"),
+    ("recategorize netflix as entertainment", "netflix", "entertainment"),
+    ("put netflix under entertainment", "netflix", "entertainment"),
+    ("netflix should be entertainment", "netflix", "entertainment"),
+    ("mark swiggy as food category", "swiggy", "food"),
+])
+def test_recategorise_phrasings(text, merchant, category):
+    got = parse_command(text, TODAY)[0]
+    assert got == {"type": "CORRECT_CATEGORY", "params": {"merchant": merchant, "category": category}}
+
+
+def test_correction_pattern_does_not_swallow_other_commands():
+    assert parse_command("put 500 into my laptop fund", TODAY)[0]["type"] == "UNKNOWN"
+    assert parse_command("what if I cut dining out by 30%?", TODAY)[0]["type"] == "WHAT_IF"

@@ -14,6 +14,11 @@ _MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_name) if m} | {
 _UNIT = {"crore": 10**7, "cr": 10**7, "lakh": 10**5, "lakhs": 10**5, "lac": 10**5, "k": 1000, "thousand": 1000}
 _AMT = r"(?:rs\.?|₹|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(crore|cr|lakhs?|lac|k|thousand)?\b"
 _FIXED = r"rent|emi|insurance|internet|electricity|loan"
+_CORRECT = re.compile(
+    r"\b(?:mark|set|change|categori[sz]e|recategori[sz]e|move|put|tag|label|classify)\s+(?!\d|rs\b|₹)"
+    r"(?:the\s+|my\s+|all\s+)*(?:category\s+(?:of|for)\s+)?(.+?)(?:\s+(?:category|transactions?|payments?|charges?))?\s+"
+    r"(?:as|to|into|under)\s+(?:the\s+)?(?:category\s+)?(.+)", re.I)
+_SHOULD_BE = re.compile(r"^(?:the\s+|my\s+)?(.+?)\s+should be\s+(?:a\s+|an\s+|under\s+)?(.+?)\.?$", re.I)
 
 
 def parse_amount(text: str) -> int | None:
@@ -63,10 +68,11 @@ def _clause(c: str, today: date) -> dict | None:
             amt = parse_amount(low[low.index("spend") + 5:]) or 0
             return _intent("WHAT_IF", kind="category_abs", category=m.group(4).strip(), delta=-amt if m.group(3) == "less" else amt)
         return None
-    m = re.search(r"\b(?:mark|set|change|categori[sz]e|move)\s+(?:the\s+)?(.+?)\s+(?:as|to|into)\s+(.+)", c, re.I) or \
+    m = _CORRECT.search(c) or _SHOULD_BE.search(c.strip()) or \
         re.search(r"(?:that\s+)?(.+?)\s+(?:one|transaction|payment)\s+is\s+(.+?)(?:,|\s+not\b|$)", c, re.I)
     if m:
-        return _intent("CORRECT_CATEGORY", merchant=m.group(1).strip(), category=m.group(2).strip().rstrip("."))
+        cat = re.sub(r"\s+category$", "", m.group(2).strip().rstrip("."), flags=re.I)
+        return _intent("CORRECT_CATEGORY", merchant=m.group(1).strip(), category=cat)
     m = re.search(rf"\b(?:i earn|i make|my (?:monthly )?(?:income|salary) is)\s*{_AMT}", low)
     if m:
         return _intent("SET_PROFILE", monthly_income=parse_amount(low[m.start(): ]))
