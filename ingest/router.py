@@ -1,6 +1,7 @@
 """FastAPI router for POST /ingest/upload and POST /ingest/sms (owner: Person A)."""
 from __future__ import annotations
 
+import logging
 from typing import Callable
 
 from fastapi import APIRouter, File, Form, UploadFile
@@ -12,6 +13,7 @@ from ingest.models import ParsedTxn
 from ingest.normalizer import keys_for
 from ingest.service import IngestResult, UnsupportedFile, ingest_file, ingest_sms
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
@@ -62,16 +64,34 @@ def _existing_keys() -> set[tuple]:
     return keys
 
 
-def _respond(result: IngestResult) -> dict:
-    repository.save(result.transactions)
-    # Persist to SQLModel DB if available
+def _respond(result: IngestResult):
+    """Save to the database FIRST; only remember rows in memory once the save worked.
+
+    Previously the rows went into the in-memory list before the DB save and any DB error was
+    swallowed, so a failed save looked like success and the next upload said "duplicate".
+    """
     try:
         from shared.db import get_engine
         from engine.categorize.service import save_parsed_txns
         from sqlmodel import Session
+    except ImportError:  # DB layer not installed: rules-only, in-memory mode
+        repository.save(result.transactions)
+        return {
+            "inserted": len(result.transactions),
+            "duplicates_skipped": result.duplicates_skipped,
+            "unparsed": result.unparsed,
+            "transactions": [
+                {"date": t.date.isoformat(), "amount": str(t.amount), "direction": t.direction,
+                 "description": t.description, "merchant": t.merchant, "source": t.source,
+                 "account": t.account}
+                for t in result.transactions
+            ],
+        }
+
+    try:
         with Session(get_engine()) as session:
             saved = save_parsed_txns(result.transactions, session, _get_llm())
-            return {
+            payload = {
                 "inserted": len(saved),
                 "duplicates_skipped": result.duplicates_skipped,
                 "unparsed": result.unparsed,
@@ -91,20 +111,11 @@ def _respond(result: IngestResult) -> dict:
                     for t in saved
                 ],
             }
-    except Exception:
-        pass
-
-    return {
-        "inserted": len(result.transactions),
-        "duplicates_skipped": result.duplicates_skipped,
-        "unparsed": result.unparsed,
-        "transactions": [
-            {"date": t.date.isoformat(), "amount": str(t.amount), "direction": t.direction,
-             "description": t.description, "merchant": t.merchant, "source": t.source,
-             "account": t.account}
-            for t in result.transactions
-        ],
-    }
+    except Exception as exc:  # surface the real error instead of hiding it
+        log.exception("ingest: saving transactions to the database failed")
+        return _error(500, "db_save_failed", f"Could not save transactions: {exc}")
+    repository.save(result.transactions)
+    return payload
 
 
 @router.post("/upload")

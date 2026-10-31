@@ -133,7 +133,10 @@ def categorize(
         return default, "rule"
 
     if llm:
-        cat = _llm_categorize(merchant, description, llm)
-        return cat, "llm"
+        try:
+            cat = _llm_categorize(merchant, description, llm)
+            return cat, "llm"
+        except Exception:  # no API key, bad model name, quota, network: never block the import
+            pass
 
     return "Other", "default"
