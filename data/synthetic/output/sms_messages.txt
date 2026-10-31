@@ -1,1 +1,15 @@
-Sample SMS log
+Rs.622.00 debited from A/c XX1234 at MYNTRA on 07-Oct-26. Avl bal Rs.40000.00
+Rs.614.00 debited from A/c XX1234 at BARBEQUE NATION on 08-Oct-26. Avl bal Rs.40000.00
+Rs.524.00 debited from A/c XX1234 at CAFE COFFEE DAY on 08-Oct-26. Avl bal Rs.40000.00
+Rs.237.00 debited from A/c XX1234 at METRO CARD RECHARGE on 08-Oct-26. Avl bal Rs.40000.00
+Rs.637.00 debited from A/c XX1234 at PVR CINEMAS on 10-Oct-26. Avl bal Rs.40000.00
+Rs.1366.00 debited from A/c XX1234 at CAFE COFFEE DAY on 11-Oct-26. Avl bal Rs.40000.00
+Rs.1184.00 debited from A/c XX1234 at BARBEQUE NATION on 12-Oct-26. Avl bal Rs.40000.00
+Rs.1020.00 debited from A/c XX1234 at CAFE COFFEE DAY on 12-Oct-26. Avl bal Rs.40000.00
+Rs.1736.00 debited from A/c XX1234 at SWIGGY on 13-Oct-26. Avl bal Rs.40000.00
+Rs.718.00 debited from A/c XX1234 at SWIGGY on 13-Oct-26. Avl bal Rs.40000.00
+Rs.252.00 debited from A/c XX1234 at PRACTO on 13-Oct-26. Avl bal Rs.40000.00
+Rs.172.00 debited from A/c XX1234 at UBER on 14-Oct-26. Avl bal Rs.40000.00
+Rs.90.00 debited from A/c XX1234 at METRO CARD RECHARGE on 14-Oct-26. Avl bal Rs.40000.00
+Rs.794.00 debited from A/c XX1234 at BLINKIT on 15-Oct-26. Avl bal Rs.40000.00
+Rs.928.00 debited from A/c XX1234 at CAFE COFFEE DAY on 15-Oct-26. Avl bal Rs.40000.00

@@ -28,10 +28,6 @@ def get_engine() -> Engine:
     return create_engine(url, **kwargs)
 
 
-# Module-level engine reference for compatibility
-engine = get_engine()
-
-
 def init_db() -> None:
     """Create all SQLModel tables if they do not already exist."""
     import shared.schema  # noqa: F401

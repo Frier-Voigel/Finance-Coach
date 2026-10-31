@@ -13,8 +13,6 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-_utcnow = utcnow
-
 
 class Transaction(SQLModel, table=True):
     """One financial transaction row."""
