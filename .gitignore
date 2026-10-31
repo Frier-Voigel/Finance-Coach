@@ -1,0 +1,8 @@
+.env
+coach.db
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+frontend/dist/

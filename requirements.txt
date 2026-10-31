@@ -1,0 +1,14 @@
+# Shared requirements for both Person A and Person B
+fastapi
+uvicorn[standard]
+sqlmodel
+pydantic
+python-dotenv
+python-dateutil
+google-generativeai
+httpx
+python-multipart
+pandas
+pdfplumber
+rapidfuzz
+pytest
