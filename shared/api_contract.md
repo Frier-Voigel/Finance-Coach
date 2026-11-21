@@ -34,6 +34,14 @@ Endpoints that depend on "today" accept `?as_of=YYYY-MM-DD` for deterministic ev
 | `GET /recurring` | None | `[Recurring]` | Lists detected subscriptions and recurring payments with status (`active`, `changed`, `unused`, `cancelled`). |
 | `POST /recurring/{id}/mark-unused` | None | `Recurring` | Marks a subscription as unused for review/cancellation alerts. `404 recurring_not_found`. |
 
+### A5. Subscription review (`/subscriptions/review`)
+| Method + Path | Request Body | Response | Description |
+|---|---|---|---|
+| `GET /subscriptions/review` | None | `{ "disclaimer": str, "total_yearly_cost": int, "total_pct_of_income": float \| null, "potential_yearly_savings": int, "overlaps": [{ "group": str, "merchants": [str], "yearly_cost": int, "message": str }], "items": [ReviewItem] }` | Review prompts for detected subscriptions. Bank data cannot show usage, so this only flags (overlaps, price changes, yearly cost as a share of income) and asks. |
+| `POST /subscriptions/review/{merchant_hash}/answer` | `{ "answer": "using" \| "not_using" }` | `{ "merchant": str, "answer": str, "review": <GET response> }` | Stores the user's answer. `not_using` also marks the subscription unused (same as `POST /recurring/{hash}/mark-unused`); `using` on an unused-marked one clears that mark. `404 recurring_not_found`. |
+
+`ReviewItem` = `{ "merchant", "merchant_hash", "cadence", "status", "amount" (latest charge), "yearly_cost", "pct_of_income": float \| null, "group": str \| null, "overlaps_with": [str], "answer": "using" \| "not_using" \| null, "reasons": [str], "ask": bool }`. An answer is asked again after 90 days.
+
 ---
 
 ## 2. Person B: Money Model, Coach and Voice

@@ -85,6 +85,17 @@ class Goal(SQLModel, table=True):
     priority: int = 1
 
 
+class SubscriptionAnswer(SQLModel, table=True):
+    """The user's own answer to 'still using this?' for a subscription (one row per merchant)."""
+
+    __tablename__ = "subscription_answers"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    merchant: str = Field(index=True)
+    answer: str  # "using" | "not_using"
+    answered_at: datetime = Field(default_factory=utcnow)
+
+
 class Nudge(SQLModel, table=True):
     """An actionable insight or alert shown to the user."""
 

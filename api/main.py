@@ -24,6 +24,7 @@ from engine.nudges.router import router as nudges_router
 from engine.planner.router import router as planner_router
 from engine.recurring.router import router as recurring_router
 from engine.reports.router import router as reports_router
+from engine.subreview.router import router as subreview_router
 from ingest.router import router as ingest_router
 from voice.router import router as voice_router
 
@@ -57,6 +58,7 @@ changes_middleware.install(app)  # records 'what changed' around uploads/correct
 app.include_router(ingest_router)          # POST /ingest/upload, POST /ingest/sms
 app.include_router(categorize_router)      # GET /transactions, PATCH /transactions/{id}, GET/DELETE /rules
 app.include_router(recurring_router)       # GET /recurring, POST /recurring/{merchant_hash}/mark-unused
+app.include_router(subreview_router)       # GET /subscriptions/review, POST /subscriptions/review/{hash}/answer
 
 # ---------------------------------------------------------------------------
 # Person B Routers (Planner, What-if, Nudges, Reports, Voice, Coach)
