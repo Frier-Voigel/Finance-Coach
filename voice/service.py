@@ -13,6 +13,7 @@ from datetime import date
 from typing import Callable
 
 from coach.explain import status_text, whatif_text
+from coach.education import explain
 from coach.guardrails import guard
 from coach.invest import invest_offer
 from engine.nudges.service import sync_nudges
@@ -95,6 +96,9 @@ def handle_command(store, text: str, today: date, llm=None, classifier=None) -> 
     if blocked:
         return {"log_id": None, "transcript": text, "blocked": True, "reply": blocked, "intents": [],
                 "offer": invest_offer(overview(store, today)["surplus"])}
+    lesson = explain(text)
+    if lesson:
+        return {"log_id": None, "transcript": text, "blocked": False, "reply": lesson, "intents": []}
     intents = parse_command(text, today, llm=llm)
     cards = []
     for i, intent in enumerate(intents):

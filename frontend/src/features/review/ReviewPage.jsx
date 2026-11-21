@@ -340,6 +340,11 @@ export default function ReviewPage() {
         </div>
       </div>
 
+      <p className="text-xs text-slate-500">
+        Category source: <b>Rule</b> = a known merchant or a rule learned from your corrections · <b>AI</b> = Gemini guessed from the merchant
+        name only · <b>You</b> = you set it · <b>Unsure</b> = nothing matched, left as Other (correct it once and it is remembered).
+      </p>
+
       {/* Transactions Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">

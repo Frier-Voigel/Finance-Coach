@@ -1,7 +1,7 @@
 """Nudge use-cases (Person B): compute drift, keep one stored nudge per category per month."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time
 
 from engine.nudges.nudges import drift_nudges
 from engine.planner.service import load_profile
@@ -19,11 +19,22 @@ def sync_nudges(store, today: date) -> list[dict]:
         match = next((e for e in existing if e["type"] == n["type"] and e["message"].startswith(prefix)
                       and (e["created_at"].year, e["created_at"].month) == (today.year, today.month)), None)
         if match is None:
-            store.add_nudge({"type": n["type"], "message": n["message"], "severity": n["severity"]})
+            # stamped with the model's "today" (not the wall clock) so the same-month check also works with ?as_of
+            store.add_nudge({"type": n["type"], "message": n["message"], "severity": n["severity"],
+                             "created_at": datetime.combine(today, time())})
         elif not match["dismissed"]:
             store.update_nudge(match["id"], {"message": n["message"], "severity": n["severity"]})
-    return sorted(store.list_nudges(), key=lambda n: n["severity"] != "high")
+    unique = {}  # newest first from the store; keep one open nudge per category (heals older duplicates)
+    for n in store.list_nudges():
+        unique.setdefault((n["type"], n["message"].split(":")[0]), n)
+    return sorted(unique.values(), key=lambda n: n["severity"] != "high")
 
 
 def dismiss(store, nudge_id: int) -> dict | None:
-    return store.update_nudge(nudge_id, {"dismissed": True})
+    """Dismiss this nudge and any open copies of it, so an older duplicate cannot pop up in its place."""
+    done = store.update_nudge(nudge_id, {"dismissed": True})
+    if done:
+        for n in store.list_nudges():
+            if n["type"] == done["type"] and n["message"].split(":")[0] == done["message"].split(":")[0]:
+                store.update_nudge(n["id"], {"dismissed": True})
+    return done

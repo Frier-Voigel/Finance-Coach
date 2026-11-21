@@ -23,6 +23,7 @@ export default function ConfirmationCard({ result, outcome, busy, onConfirm, onC
   return (
     <div className="card text-sm" role="region" aria-label="Confirm voice command">
       <p className="mb-2 text-xs text-slate-500">You said: “{result.transcript}”</p>
+      {result.reply && <p className="text-slate-700">{result.reply}</p>}
       <ul className="space-y-2">
         {result.intents.map((i) => (
           <li key={i.index}>
