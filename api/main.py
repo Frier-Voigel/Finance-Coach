@@ -18,6 +18,8 @@ from shared.db import init_db
 from api.errors import install_error_handlers
 from coach.router import router as coach_router
 from engine.categorize.router import router as categorize_router
+from engine.changes import middleware as changes_middleware
+from engine.changes.router import router as changes_router
 from engine.nudges.router import router as nudges_router
 from engine.planner.router import router as planner_router
 from engine.recurring.router import router as recurring_router
@@ -47,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 install_error_handlers(app)
+changes_middleware.install(app)  # records 'what changed' around uploads/corrections; observer only
 
 # ---------------------------------------------------------------------------
 # Person A Routers (Ingestion, Categorisation, Recurring Detection)
@@ -58,7 +61,7 @@ app.include_router(recurring_router)       # GET /recurring, POST /recurring/{me
 # ---------------------------------------------------------------------------
 # Person B Routers (Planner, What-if, Nudges, Reports, Voice, Coach)
 # ---------------------------------------------------------------------------
-for r in (planner_router, nudges_router, reports_router, voice_router, coach_router):
+for r in (planner_router, nudges_router, reports_router, voice_router, coach_router, changes_router):
     app.include_router(r)
 
 

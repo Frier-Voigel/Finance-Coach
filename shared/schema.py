@@ -120,3 +120,18 @@ class VoiceLog(SQLModel, table=True):
     intent_json: str = "[]"
     confirmed: bool = False
     result: Optional[str] = None
+
+
+class ChangeEvent(SQLModel, table=True):
+    """One line of the 'What changed' feed. Events from the same upload/correction share a batch_id."""
+
+    __tablename__ = "change_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    batch_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    trigger: str  # "upload" | "sms" | "correction" | "voice" | "profile" | "goal" | "subscription"
+    kind: str  # "goal_shift" | "category_pace" | "reclassified" | "subscription_price" | ...
+    severity: str = "info"  # "high" | "medium" | "good" | "info"
+    headline: str
+    data_json: str = "{}"
