@@ -1,12 +1,21 @@
-import { FOOTER } from "../../api";
+import { useNavigate } from "react-router-dom";
+import { FOOTER, inr } from "../../api";
 
 /** Shows what was understood. Nothing is written until the user presses Confirm. */
 export default function ConfirmationCard({ result, outcome, busy, onConfirm, onCancel, onClose }) {
+  const navigate = useNavigate();
   if (result.blocked) {
     return (
       <div className="card border-amber-300 bg-amber-50 text-sm" role="alert">
         <p>{result.reply}</p>
-        <button className="btn-ghost mt-2" onClick={onClose}>Close</button>
+        <div className="mt-2 flex gap-2">
+          {result.offer && (
+            <button className="btn" onClick={() => { onClose(); navigate(`/whatif?invest=${result.offer.amount}`); }}>
+              Model investing {inr(result.offer.amount)}/month from my surplus
+            </button>
+          )}
+          <button className="btn-ghost" onClick={onClose}>Close</button>
+        </div>
       </div>
     );
   }
