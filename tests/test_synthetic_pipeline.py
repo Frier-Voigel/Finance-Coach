@@ -44,9 +44,18 @@ def test_story_data_present_and_reupload_adds_nothing():
         assert _ingest_all(Path(d), keys_for(txns)) == []
 
 
-def test_upload_and_sms_endpoints():
+def test_upload_and_sms_endpoints(monkeypatch):
     pytest.importorskip("httpx")
     fastapi = pytest.importorskip("fastapi")
+    pytest.importorskip("sqlmodel")
+    import shared.db
+    import shared.schema  # noqa: F401 - registers the tables
+    from sqlalchemy.pool import StaticPool
+    from sqlmodel import SQLModel, create_engine
+
+    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(eng)
+    monkeypatch.setattr(shared.db, "get_engine", lambda: eng)  # never touch the developer's real coach.db
     from fastapi.testclient import TestClient
     from ingest import router as r
 

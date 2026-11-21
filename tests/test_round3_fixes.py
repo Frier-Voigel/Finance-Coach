@@ -50,3 +50,11 @@ def test_money_terms_are_explained_but_status_questions_and_picks_are_not_hijack
     assert explain("what is my emergency fund target?") is None and explain("how am I doing?") is None
     assert guard("which index fund should I buy?") is not None
     assert all(not output_violates(a) for _, a in __import__("coach.education", fromlist=["GLOSSARY"]).GLOSSARY)
+
+
+def test_nudge_timestamps_are_timezone_aware():
+    """The database column rejects naive datetimes; the demo date must be stamped as UTC."""
+    s = store()
+    s.txns.append(tx(900, date(2026, 10, 3), 6000, "Dining"))
+    sync_nudges(s, TODAY)
+    assert s.nudges[0]["created_at"].tzinfo is not None

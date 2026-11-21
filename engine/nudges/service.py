@@ -1,7 +1,7 @@
 """Nudge use-cases (Person B): compute drift, keep one stored nudge per category per month."""
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 from engine.nudges.nudges import drift_nudges
 from engine.planner.service import load_profile
@@ -21,7 +21,7 @@ def sync_nudges(store, today: date) -> list[dict]:
         if match is None:
             # stamped with the model's "today" (not the wall clock) so the same-month check also works with ?as_of
             store.add_nudge({"type": n["type"], "message": n["message"], "severity": n["severity"],
-                             "created_at": datetime.combine(today, time())})
+                             "created_at": datetime.combine(today, time(), tzinfo=timezone.utc)})
         elif not match["dismissed"]:
             store.update_nudge(match["id"], {"message": n["message"], "severity": n["severity"]})
     unique = {}  # newest first from the store; keep one open nudge per category (heals older duplicates)

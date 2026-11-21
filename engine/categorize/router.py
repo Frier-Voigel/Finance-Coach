@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from shared.db import get_engine
+from shared.db import get_session
 from shared.schema import Rule, Transaction
 from engine.categorize.service import patch_transaction as _patch
 
@@ -19,9 +19,7 @@ router = APIRouter(tags=["categorize"])
 # Dependency
 # ---------------------------------------------------------------------------
 
-def _session():
-    with Session(get_engine()) as session:
-        yield session
+_session = get_session  # the shared dependency, so tests (and anything else) can override one place
 
 
 # ---------------------------------------------------------------------------

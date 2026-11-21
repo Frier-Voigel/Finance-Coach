@@ -6,7 +6,7 @@ import hashlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from shared.db import get_engine
+from shared.db import get_session
 from shared.schema import Recurring, Transaction
 from engine.recurring.detector import detect_recurring
 
@@ -17,9 +17,7 @@ router = APIRouter(tags=["recurring"])
 # Dependency
 # ---------------------------------------------------------------------------
 
-def _session():
-    with Session(get_engine()) as session:
-        yield session
+_session = get_session  # the shared dependency, so tests (and anything else) can override one place
 
 
 # ---------------------------------------------------------------------------
