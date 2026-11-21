@@ -102,14 +102,38 @@ def parse_command(text: str, today: date, llm: Callable[[str], list[dict]] | Non
         return out
     return (llm(text) if llm else []) or [_intent("UNKNOWN", text=text)]
 
+def _describe(intent_type: str, p: dict) -> str:
+    """Plain-English one-liner for what-if and profile commands (no raw dicts)."""
+    if intent_type == "WHAT_IF":
+        kind = p.get("kind")
+        if kind == "category_pct":
+            pct = p.get("pct", 0)
+            return f"What if you {'cut' if pct < 0 else 'raise'} {str(p.get('category', 'spending')).title()} by {abs(pct):g}%?"
+        if kind == "category_abs":
+            d = p.get("delta", 0)
+            return f"What if {str(p.get('category', 'spending')).title()} {'drops' if d < 0 else 'rises'} by ₹{abs(d):,}/month?"
+        if kind == "fixed_abs":
+            d = p.get("delta", 0)
+            return f"What if {p.get('name', 'a fixed cost')} {'drops' if d < 0 else 'rises'} by ₹{abs(d):,}/month?"
+        if kind == "income_abs":
+            d = p.get("delta", 0)
+            return f"What if your income {'drops' if d < 0 else 'rises'} by ₹{abs(d):,}/month?"
+        return "Run this what-if"
+    parts = []  # SET_PROFILE
+    if "monthly_income" in p:
+        parts.append(f"monthly income ₹{p['monthly_income']:,}")
+    for name, amt in (p.get("fixed_costs") or {}).items():
+        parts.append(f"{name} ₹{amt:,}")
+    return "Set " + ", ".join(parts) if parts else "Update your profile"
+
 
 def confirmation(intent: dict) -> str:
     """One-line text for the confirmation card."""
     p = intent["params"]
     return {
-        "WHAT_IF": f"Run what-if: {p}",
+        "WHAT_IF": _describe("WHAT_IF", p),
         "CORRECT_CATEGORY": f"Recategorise '{p.get('merchant')}' as '{p.get('category')}' and remember the rule",
-        "SET_PROFILE": f"Update profile: {p}",
+        "SET_PROFILE": _describe("SET_PROFILE", p),
         "SET_GOAL": f"Add goal '{p.get('name')}': ₹{p.get('target_amount', 0):,} by {p.get('target_date') or 'no date'}",
         "LOG_EXPENSE": f"Log expense ₹{p.get('amount', 0):,} on '{p.get('description')}' ({p.get('date')})",
         "ASK_STATUS": "Show how you're doing this month",
