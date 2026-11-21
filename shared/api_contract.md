@@ -62,6 +62,13 @@ Endpoints that depend on "today" accept `?as_of=YYYY-MM-DD` for deterministic ev
 | `POST /nudges/{id}/dismiss` | None | `Nudge` | Dismisses a nudge so it is not shown again this month. `404 nudge_not_found`. |
 | `GET /reports/{month}` | Query `format=json\|html` (`YYYY-MM`) | JSON report object or standalone HTML document | Comprehensive monthly review: income, spent, saved, savings rate %, spend by category comparison, subscriptions, goal status, nudges. `422 bad_month`. |
 
+### B3b. What changed (`/changes`)
+| Method + Path | Request Body | Response | Description |
+|---|---|---|---|
+| `GET /changes` | Query: `limit?` (default 30, max 200), `after_id?` | `[ChangeEvent]` newest first | Feed of plan movements. Events are written automatically after `POST /ingest/upload`, `POST /ingest/sms`, `PATCH /transactions/{id}`, `POST /voice/confirm`, `PUT /profile`, `POST/PATCH /goals`, `POST /recurring/{hash}/mark-unused` (only when something moved). |
+
+`ChangeEvent` = `{ "id": int, "batch_id": str, "created_at": str, "trigger": str, "kind": "goal_shift" \| "category_pace" \| "reclassified" \| "subscription_price" \| "subscription_new" \| "subscription_status", "severity": "high" \| "medium" \| "good" \| "info", "headline": str, "data": object }`. Uses `?as_of` on the triggering request, else env `AS_OF`, else today.
+
 ### B4. Voice Layer (`/voice`)
 | Method + Path | Request Body | Response | Description |
 |---|---|---|---|

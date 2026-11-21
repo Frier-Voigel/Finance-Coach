@@ -13,9 +13,11 @@ import {
   SlidersHorizontal,
   Bell,
   FileText,
+  History,
 } from 'lucide-react';
 import { api } from '../api/client';
 import VoiceDock from '../features/voice/VoiceDock';
+import ChangesDock from '../features/changes/ChangesDock';
 
 export default function Layout() {
   const [backendOnline, setBackendOnline] = useState(null);
@@ -46,6 +48,7 @@ export default function Layout() {
     { to: '/goals', label: 'Goals', icon: Target },
     { to: '/whatif', label: 'What-If', icon: SlidersHorizontal },
     { to: '/nudges', label: 'Nudges', icon: Bell },
+    { to: '/changes', label: 'What changed', icon: History },
     { to: '/report', label: 'Report', icon: FileText },
   ];
 
@@ -146,6 +149,7 @@ export default function Layout() {
 
       {/* Floating Voice Layer */}
       <VoiceDock />
+      <ChangesDock />
 
       {/* Footer with Guardrail & Disclaimer */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
