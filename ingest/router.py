@@ -15,6 +15,7 @@ from ingest.service import IngestResult, UnsupportedFile, ingest_file, ingest_sm
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 class InMemoryRepository:
@@ -122,6 +123,10 @@ def _respond(result: IngestResult):
 async def upload(file: UploadFile = File(...), account: str = Form("")):
     """Ingest a CSV or PDF statement."""
     content = await file.read()
+    if not content.strip():
+        return _error(422, "empty_file", "That file is empty. Export the statement again and re-upload it.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        return _error(413, "file_too_large", "That file is over 5 MB. Upload one month or one account at a time.")
     try:
         result = ingest_file(file.filename or "", content, account, _get_llm(),
                              _existing_keys())

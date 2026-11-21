@@ -31,6 +31,13 @@ const CATEGORIES = [
 
 const SOURCES = ['csv', 'pdf', 'sms', 'voice'];
 
+const ORIGIN = {
+  rule: { label: 'Rule', why: 'Matched a rule: a known merchant, or one learned from your corrections.' },
+  llm: { label: 'AI', why: 'Guessed by Gemini from the merchant name only (no amounts, dates or account numbers were sent).' },
+  user: { label: 'You', why: 'You set this category yourself.' },
+  default: { label: 'Unsure', why: 'No rule matched and AI was unavailable, so it was left as Other. Correct it once and it will be remembered.' },
+};
+
 export default function ReviewPage() {
   const { showRuleLearnedToast, addToast } = useToast();
 
@@ -433,9 +440,9 @@ export default function ReviewPage() {
                                 ? 'bg-amber-100 text-amber-700'
                                 : 'bg-slate-100 text-slate-500'
                             }`}
-                            title={`Category origin: ${txn.category_source}`}
+                            title={ORIGIN[txn.category_source]?.why || `Category origin: ${txn.category_source}`}
                           >
-                            {txn.category_source}
+                            {ORIGIN[txn.category_source]?.label || txn.category_source}
                           </span>
 
                           {isUpdating && <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600" />}

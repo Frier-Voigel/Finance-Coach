@@ -6,6 +6,7 @@ import json
 import re
 from typing import Callable
 
+from shared.privacy import mask
 from shared.schema import Rule
 
 DEFAULT_CATEGORIES = [
@@ -79,8 +80,12 @@ def apply_rules(merchant: str, description: str, db_rules: list[Rule]) -> str | 
 
 
 def _llm_categorize(merchant: str, description: str, llm: Callable[[str], str]) -> str:
-    """Ask the LLM to classify the transaction; cache by input hash."""
-    cache_key = hashlib.sha256(f"{merchant}||{description}".encode()).hexdigest()
+    """Ask the LLM to classify the transaction; cache by input hash.
+
+    Only the merchant name is sent. The (masked, shortened) description is used only when no merchant was found.
+    """
+    text = merchant.strip() or mask(description)[:60]
+    cache_key = hashlib.sha256(text.encode()).hexdigest()
     if cache_key in _llm_cache:
         return _llm_cache[cache_key]
 
@@ -88,8 +93,7 @@ def _llm_categorize(merchant: str, description: str, llm: Callable[[str], str]) 
     prompt = (
         f"Classify this bank transaction into exactly one category.\n"
         f"Categories: {categories_str}\n"
-        f"Merchant: {merchant}\n"
-        f"Description: {description}\n"
+        f"Merchant: {text}\n"
         f"Reply with only the category name, nothing else."
     )
     raw = llm(prompt).strip()

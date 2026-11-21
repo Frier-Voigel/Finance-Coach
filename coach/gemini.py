@@ -8,6 +8,8 @@ import logging
 import os
 from typing import Callable
 
+from shared.privacy import mask
+
 log = logging.getLogger(__name__)
 
 
@@ -20,7 +22,7 @@ def generate(prompt: str) -> str | None:
 
         genai.configure(api_key=key)
         model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
-        return model.generate_content(prompt).text
+        return model.generate_content(mask(prompt)).text
     except Exception as e:  # noqa: BLE001 - free tier rate limits etc. must not crash the app
         log.warning("Gemini call failed: %s", e)
         return None

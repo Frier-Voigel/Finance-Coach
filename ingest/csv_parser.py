@@ -68,7 +68,10 @@ def parse_rows(rows: list[list[str]], source: str, account: str = "") -> list[Pa
             header_idx, cols = i, m
             break
     if header_idx is None:
-        raise ValueError("could not find a header row with date, description and amount columns")
+        raise ValueError(
+            "This doesn't look like a bank statement: I couldn't find a table with Date, Description (or Narration) "
+            "and Debit/Credit (or Amount) columns. Export the transaction list as CSV from your bank and try again."
+        )
 
     out: list[ParsedTxn] = []
     for row in rows[header_idx + 1:]:
@@ -93,6 +96,11 @@ def parse_rows(rows: list[list[str]], source: str, account: str = "") -> list[Pa
                 pass
         out.append(ParsedTxn(d, amount, direction, desc, clean_merchant(desc), source,
                              ",".join(row), account, balance))
+    if not out:
+        raise ValueError(
+            "I found the statement columns but couldn't read any rows. Check that dates look like 05/10/2026 or "
+            "05-Oct-2026 and that amounts are plain numbers."
+        )
     return out
 
 

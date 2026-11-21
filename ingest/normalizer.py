@@ -44,7 +44,7 @@ def parse_amount(text: str) -> Decimal:
 
     Negative for parentheses, a leading minus or a 'Dr' suffix; 'Cr' is positive.
     """
-    s = (text or "").strip()
+    s = (text or "").strip().replace("\u2212", "-").replace("\u2013", "-")  # unicode minus / en dash
     if not s:
         raise ValueError("empty amount")
     negative = s.startswith("(") and s.endswith(")") or s.startswith("-")

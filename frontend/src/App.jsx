@@ -10,6 +10,7 @@ import GoalsPage from './features/goals/GoalsPage';
 import WhatIfPage from './features/whatif/WhatIfPage';
 import NudgesPage from './features/nudges/NudgesPage';
 import ReportPage from './features/report/ReportPage';
+import AccuracyPage from './features/accuracy/AccuracyPage';
 import ChangesPage from './features/changes/ChangesPage';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="whatif" element={<WhatIfPage />} />
           <Route path="nudges" element={<NudgesPage />} />
           <Route path="report" element={<ReportPage />} />
+          <Route path="accuracy" element={<AccuracyPage />} />
           <Route path="changes" element={<ChangesPage />} />
           <Route path="*" element={<Navigate to="/upload" replace />} />
         </Route>

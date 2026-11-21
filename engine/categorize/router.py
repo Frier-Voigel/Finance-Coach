@@ -76,6 +76,16 @@ def update_transaction(
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(exc)})
 
 
+@router.get("/categorize/accuracy")
+def categorize_accuracy(llm: bool = False):
+    """Accuracy on labelled synthetic data: rules only, (optionally) rules + Gemini, and after N corrections."""
+    from data.synthetic.truth import build_rows
+    from engine.categorize.benchmark import _llm, run_benchmark
+
+    fn = _llm() if llm else None
+    return {**run_benchmark(build_rows(), fn), "llm_used": fn is not None}
+
+
 # ---------------------------------------------------------------------------
 # Rules
 # ---------------------------------------------------------------------------
