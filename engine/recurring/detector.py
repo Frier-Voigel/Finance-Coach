@@ -1,6 +1,7 @@
 """Recurring subscription / payment detection."""
 from __future__ import annotations
 
+import re
 import hashlib
 import statistics
 from datetime import date, timedelta
@@ -41,6 +42,14 @@ def _price_steps(amounts: list[Decimal]) -> int:
     return sum(1 for a, b in zip(amounts, amounts[1:]) if a == 0 or abs(float(b - a)) / float(a) > 0.05)
 
 
+_RENT = re.compile(r"\b(rent|landlord)\b", re.I)
+
+
+def _is_rent(t: Transaction) -> bool:
+    """Rent repeats monthly but is a fixed cost, not a subscription (matched by category or merchant wording)."""
+    return (t.category or "").lower() == "rent" or bool(_RENT.search(t.merchant or ""))
+
+
 def detect_recurring(txns: list[Transaction]) -> list[dict]:
     """Detect recurring merchants from a transaction list.
 
@@ -62,7 +71,7 @@ def detect_recurring(txns: list[Transaction]) -> list[dict]:
     # Group by merchant
     groups: dict[str, list[Transaction]] = {}
     for t in txns:
-        if t.direction != "debit":  # salary, refunds and other money in are not subscriptions
+        if t.direction != "debit" or _is_rent(t):  # salary, refunds and rent are not subscriptions
             continue
         groups.setdefault(t.merchant, []).append(t)
 
