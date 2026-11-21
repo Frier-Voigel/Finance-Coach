@@ -14,6 +14,7 @@ from typing import Callable
 
 from coach.explain import status_text, whatif_text
 from coach.guardrails import guard
+from coach.invest import invest_offer
 from engine.nudges.service import sync_nudges
 from engine.planner.service import add_goal, merge_profile, overview, run_what_if
 from voice.intent import confirmation, parse_command
@@ -92,7 +93,8 @@ def handle_command(store, text: str, today: date, llm=None, classifier=None) -> 
     text = text.strip()
     blocked = guard(text, classifier=classifier)
     if blocked:
-        return {"log_id": None, "transcript": text, "blocked": True, "reply": blocked, "intents": []}
+        return {"log_id": None, "transcript": text, "blocked": True, "reply": blocked, "intents": [],
+                "offer": invest_offer(overview(store, today)["surplus"])}
     intents = parse_command(text, today, llm=llm)
     cards = []
     for i, intent in enumerate(intents):

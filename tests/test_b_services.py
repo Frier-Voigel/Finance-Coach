@@ -210,3 +210,14 @@ def test_guard_classifier_adds_a_layer_but_never_replaces_rules():
     def boom(t): raise RuntimeError
     assert guard("how much can I save?", classifier=boom) is None  # a broken LLM does not break the request
     assert guard("which stock should I buy?", classifier=boom) == REDIRECT
+
+
+def test_blocked_stock_question_offers_invest_whatif():
+    from coach.invest import INVEST_NAME, invest_offer
+    assert invest_offer(10300)["amount"] == 5000 and invest_offer(900) is None and invest_offer(-5) is None
+    blocked = voice.handle_command(store(), "which stock should I buy?", TODAY)
+    assert blocked["blocked"] and blocked["reply"] == REDIRECT
+    offer = blocked["offer"]
+    assert offer["name"] == INVEST_NAME and offer["amount"] > 0 and offer["amount"] % 500 == 0
+    r = planner.run_what_if(store(), {"kind": "fixed_abs", "name": offer["name"], "delta": offer["amount"]}, TODAY)
+    assert r["surplus_delta"] == -offer["amount"]

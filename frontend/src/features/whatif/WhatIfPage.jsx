@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FOOTER, api, inr, monthYear, useLoader } from "../../api";
 
 export default function WhatIfPage() {
   const { data: plan, error } = useLoader(() => api("/plan"));
-  const [kind, setKind] = useState("category_pct");
+  const [params] = useSearchParams();
+  const invest = useRef(Number(params.get("invest")) || 0); // from the "model investing" button
+  const [kind, setKind] = useState(invest.current ? "invest" : "category_pct");
   const [target, setTarget] = useState("");
   const [value, setValue] = useState(-30);
   const [result, setResult] = useState(null);
@@ -14,12 +17,16 @@ export default function WhatIfPage() {
   const fixed = plan ? Object.keys(plan.profile.fixed_costs) : [];
   const options = kind === "fixed_abs" ? fixed : kind === "category_pct" ? categories : [];
 
-  useEffect(() => { setTarget(options[0] || ""); setValue(kind === "category_pct" ? -30 : 0); }, [kind, plan]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setTarget(options[0] || "");
+    setValue(kind === "category_pct" ? -30 : kind === "invest" ? invest.current || 5000 : 0);
+  }, [kind, plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-run the simulation shortly after any control changes.
   useEffect(() => {
-    if (!plan || (kind !== "income_abs" && !target)) return undefined;
+    if (!plan || (kind !== "income_abs" && kind !== "invest" && !target)) return undefined;
     const body = kind === "category_pct" ? { kind, category: target, pct: Number(value) }
+      : kind === "invest" ? { kind: "fixed_abs", name: "Monthly investing", delta: Math.max(0, Number(value) || 0) }
       : kind === "fixed_abs" ? { kind, name: target, delta: Number(value) || 0 } : { kind, delta: Number(value) || 0 };
     const t = setTimeout(() => api("/whatif", { method: "POST", body }).then((r) => { setResult(r); setErr(""); }, (e) => setErr(e.message)), 250);
     return () => clearTimeout(t);
@@ -40,9 +47,10 @@ export default function WhatIfPage() {
             <option value="category_pct">Spending in a category (%)</option>
             <option value="fixed_abs">A fixed cost (₹/month)</option>
             <option value="income_abs">Income (₹/month)</option>
+            <option value="invest">Invest from surplus (₹/month)</option>
           </select>
         </div>
-        {kind !== "income_abs" && (
+        {kind !== "income_abs" && kind !== "invest" && (
           <div>
             <label className="label" htmlFor="target">{kind === "fixed_abs" ? "Cost" : "Category"}</label>
             <select id="target" className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -61,6 +69,12 @@ export default function WhatIfPage() {
       {result && (
         <>
           <div className="card">
+            {kind === "invest" && (
+              <p className="mb-2 text-sm text-slate-600">
+                Setting aside {inr(Number(value) || 0)}/month adds up to {inr((Number(value) || 0) * 12)} a year. This models the cash
+                going in, with no returns assumed and no product chosen. It shows what the money would cost your goals.
+              </p>
+            )}
             <p>Monthly surplus: <strong>{inr(result.surplus_before)}</strong> → <strong>{inr(result.surplus_after)}</strong>
               <span className={result.surplus_delta >= 0 ? "ml-2 text-emerald-700" : "ml-2 text-red-600"}>
                 ({result.surplus_delta >= 0 ? "+" : ""}{inr(result.surplus_delta)})</span></p>

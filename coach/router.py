@@ -10,6 +10,7 @@ from api.deps import get_store, get_today
 from coach.explain import phrase, status_text, with_footer
 from coach.gemini import classify_security_advice, llm_or_none
 from coach.guardrails import guard
+from coach.invest import invest_offer
 from engine.nudges.service import sync_nudges
 from engine.planner.service import overview
 
@@ -26,7 +27,7 @@ def ask(body: AskRequest, store=Depends(get_store), today: date = Depends(get_to
     llm = llm_or_none()
     redirect = guard(body.question, classifier=classify_security_advice if llm else None)
     if redirect:
-        return {"answer": redirect, "blocked": True}
+        return {"answer": redirect, "blocked": True, "offer": invest_offer(overview(store, today)["surplus"])}
     facts = status_text(overview(store, today), sync_nudges(store, today))
     answer = phrase(facts, body.question, llm)
     return {"answer": with_footer(guard("", answer) or answer), "blocked": False}
