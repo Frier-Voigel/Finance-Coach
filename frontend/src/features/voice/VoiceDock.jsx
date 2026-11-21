@@ -4,6 +4,8 @@ import ConfirmationCard from "./ConfirmationCard.jsx";
 import MicButton from "./MicButton.jsx";
 import { useWispr } from "./useWispr.js";
 
+const MIC = import.meta.env.VITE_ENABLE_MIC === "1"; // mic stays hidden until a Wispr key exists
+
 /** Bottom bar on every page: mic + text fallback -> POST /voice/command -> confirmation card -> POST /voice/confirm. */
 export default function VoiceDock() {
   const [text, setText] = useState("");
@@ -41,10 +43,10 @@ export default function VoiceDock() {
           <p role="status" className={`text-sm ${error || err ? "text-red-600" : "text-slate-600"}`}>{error || err || `“${partial}”`}</p>
         )}
         <form onSubmit={onSubmit} className="flex items-center gap-2">
-          <MicButton state={state} onStart={start} onStop={stop} />
+          {MIC && <MicButton state={state} onStart={start} onStop={stop} />}
           <input
             className="input" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type a command"
-            placeholder={state === "listening" ? "Listening…" : "Type or tap the mic: “What if I cut dining out by 30%?”"}
+            placeholder={state === "listening" ? "Listening…" : `Type${MIC ? " or tap the mic" : ""}: “What if I cut dining out by 30%?”`}
           />
           <button className="btn" type="submit" disabled={busy || !text.trim()}>Send</button>
         </form>
