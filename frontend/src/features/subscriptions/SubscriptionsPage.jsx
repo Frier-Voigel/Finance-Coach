@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToast } from '../../components/Toast';
+import ReviewPrompts from './ReviewPrompts';
 
 export default function SubscriptionsPage() {
   const { addToast } = useToast();
@@ -135,6 +136,8 @@ export default function SubscriptionsPage() {
           Refresh Detection
         </button>
       </div>
+
+      <ReviewPrompts />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
