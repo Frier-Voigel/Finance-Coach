@@ -68,3 +68,10 @@ def run_what_if(store, change: dict, today: date) -> dict:
     profile = load_profile(store)
     variable = variable_spend(store, profile, today)
     return what_if(profile, variable, store.list_goals(), today, change)
+
+NON_SPENDING = ("Credit Card Payment", "Income")  # money moving, not spent
+
+def variable_spend(store, profile: dict, today: date) -> dict[str, int]:
+    """Average monthly spend per category over the last 3 full months, minus fixed costs and non-spending."""
+    skip = [*profile["fixed_costs"], *NON_SPENDING]
+    return avg_monthly_by_category(store.list_transactions(), today, exclude=skip)
