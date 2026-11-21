@@ -37,7 +37,7 @@ def ingest_file(filename: str, content: bytes, account: str = "", llm: LLM | Non
             if not txns:
                 unparsed = [text.strip()[:500]]
     else:
-        raise UnsupportedFile(f"unsupported file type: {filename}")
+        raise UnsupportedFile(f"I can read .csv and .pdf statements, but not '{filename}'. Paste SMS alerts into the SMS box instead.")
     return _finish(txns, unparsed, existing_keys)
 
 

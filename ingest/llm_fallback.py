@@ -16,6 +16,15 @@ from ingest.normalizer import clean_merchant, parse_amount, parse_date
 LLM = Callable[[str], str]
 _CACHE: dict[str, list[dict]] = {}
 
+_DATE_LIKE = re.compile(r"\b\d{1,2}[-/. ](?:\d{1,2}|[A-Za-z]{3,9})[-/. ]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
+_AMOUNT_LIKE = re.compile(r"\d[\d,]*\.\d{2}\b")
+
+
+def txn_lines(text: str) -> str:
+    """Keep only lines that look like a transaction (a date and an amount), so headers with names and addresses stay home."""
+    return "\n".join(l for l in text.splitlines() if _DATE_LIKE.search(l) and _AMOUNT_LIKE.search(l))
+
+
 PROMPT = (
     "Extract bank transactions from the text below. Reply with ONLY a JSON array of objects "
     'with keys "date" (as written), "description", "amount" (as written, no math) and '
@@ -26,9 +35,10 @@ PROMPT = (
 def extract_with_llm(text: str, source: str, llm: LLM, default_year: int | None = None,
                      account: str = "") -> list[ParsedTxn]:
     """Ask the LLM to pull transactions from `text`; cache by content hash."""
-    key = hashlib.sha256(text.encode()).hexdigest()
+    sent = txn_lines(text) if source == "pdf" else text
+    key = hashlib.sha256(sent.encode()).hexdigest()
     if key not in _CACHE:
-        _CACHE[key] = _decode_json(llm(PROMPT + text))
+        _CACHE[key] = _decode_json(llm(PROMPT + sent)) if sent.strip() else []
     out: list[ParsedTxn] = []
     for item in _CACHE[key]:
         try:

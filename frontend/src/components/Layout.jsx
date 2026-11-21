@@ -50,6 +50,7 @@ export default function Layout() {
     { to: '/nudges', label: 'Nudges', icon: Bell },
     { to: '/changes', label: 'What changed', icon: History },
     { to: '/report', label: 'Report', icon: FileText },
+    { to: '/accuracy', label: 'Accuracy', icon: CheckCircle2 },
   ];
 
   return (

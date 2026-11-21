@@ -5,6 +5,8 @@ import hashlib
 import os
 from typing import TYPE_CHECKING
 
+from shared.privacy import mask
+
 # Module-level cache: sha256(prompt) -> response str
 _cache: dict[str, str] = {}
 
@@ -30,6 +32,7 @@ def complete(prompt: str) -> str:
             "Run: pip install google-generativeai"
         ) from exc
 
+    prompt = mask(prompt)  # nothing identifying leaves the server
     key = hashlib.sha256(prompt.encode()).hexdigest()
     if key in _cache:
         return _cache[key]
